@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07121d">
+  <title>Ronda Segura | Control de rondas</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07121d;
+      --panel: #101e2b;
+      --panel-2: #142535;
+      --line: rgba(166, 194, 218, .13);
+      --text: #edf5fb;
+      --muted: #91a4b7;
+      --cyan: #3dd9c4;
+      --blue: #67a9ff;
+      --green: #64dfa9;
+      --amber: #ffc66e;
+      --red: #ff7d83;
+      --radius: 16px;
+      font-family: Inter, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--text); background: radial-gradient(ellipse at 70% -15%, rgba(39,120,145,.2), transparent 42%), var(--bg); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+    .login-screen { display: grid; min-height: 100vh; place-items: center; padding: 22px; }
+    .login-card { width: min(100%, 420px); padding: 30px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(145deg, rgba(20,37,53,.98), rgba(11,25,38,.98)); box-shadow: 0 24px 80px rgba(0,0,0,.35); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+    .brand-mark { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid rgba(61,217,196,.3); border-radius: 14px; color: var(--cyan); background: rgba(61,217,196,.1); font-size: 22px; }
+    .brand-name { font-size: 17px; font-weight: 800; letter-spacing: .08em; }
+    .brand-caption { margin-top: 4px; color: var(--muted); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+    .eyebrow { color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { margin: 8px 0 8px; font-size: 26px; letter-spacing: -.04em; }
+    .intro { margin: 0 0 24px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .field { display: grid; gap: 7px; margin-top: 15px; }
+    .field label { color: #c3d0dc; font-size: 11px; font-weight: 650; }
+    .field input, .field select, .field textarea { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; outline: 0; color: var(--text); background: #091622; }
+    .field textarea { min-height: 90px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: rgba(61,217,196,.6); box-shadow: 0 0 0 3px rgba(61,217,196,.08); }
+    .field input[type="file"] { padding: 9px; font-size: 11px; }
+    .button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid transparent; border-radius: 11px; font-size: 12px; font-weight: 750; transition: .18s ease; }
+    .button:disabled { cursor: not-allowed; opacity: .45; }
+    .button.primary { color: #06201f; background: linear-gradient(110deg, #4de1cb, #75d8e8); box-shadow: 0 7px 25px rgba(61,217,196,.14); }
+    .button.primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .button.secondary { border-color: var(--line); color: #c3d0dc; background: rgba(255,255,255,.035); }
+    .button.danger { border-color: rgba(255,125,131,.25); color: #ff9ba0; background: rgba(255,125,131,.08); }
+    .button.full { width: 100%; margin-top: 20px; }
+    .fine-print { margin-top: 16px; color: #8194a7; font-size: 10px; line-height: 1.55; }
+    .app { min-height: 100vh; }
+    .topbar { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 15px; padding: 12px clamp(16px, 4vw, 42px); border-bottom: 1px solid var(--line); background: rgba(7,18,29,.82); }
+    .topbar .brand { margin: 0; }
+    .topbar .brand-mark { width: 39px; height: 39px; border-radius: 12px; font-size: 18px; }
+    .topbar .brand-name { font-size: 14px; }
+    .topbar .brand-caption { font-size: 9px; }
+    .operator { display: flex; align-items: center; gap: 10px; color: #c7d5e0; font-size: 11px; text-align: right; }
+    .operator-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(100,223,169,.55); }
+    .layout { display: grid; width: min(1500px, 100%); grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; margin: 0 auto; padding: 22px clamp(14px, 3vw, 34px) 34px; }
+    .main-column { min-width: 0; }
+    .heading-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 2px 0 15px; }
+    .heading-row h1 { margin: 5px 0 0; font-size: 22px; }
+    .heading-row p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .round-status { display: inline-flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 22px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .round-status.live { border-color: rgba(100,223,169,.25); color: var(--green); background: rgba(100,223,169,.06); }
+    .round-status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .map-wrap { position: relative; height: min(67vh, 680px); min-height: 390px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: #0e2231; box-shadow: 0 20px 55px rgba(0,0,0,.2); }
+    #map { width: 100%; height: 100%; background: #0d2130; }
+    .leaflet-container { font-family: inherit; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+    .leaflet-control-zoom a { color: #d8e8ef !important; background: #102232 !important; border-color: var(--line) !important; }
+    .leaflet-control-layers { border: 1px solid rgba(163,194,218,.25) !important; border-radius: 10px !important; color: #e6f2f6 !important; background: rgba(7,18,29,.92) !important; box-shadow: 0 4px 14px rgba(0,0,0,.2) !important; }
+    .leaflet-control-layers-expanded { padding: 9px 11px !important; }
+    .leaflet-control-layers-separator { border-top-color: var(--line) !important; }
+    .leaflet-control-layers label { margin: 3px 0; font-size: 11px; }
+    .leaflet-control-layers-base input { accent-color: #3dd9c4; }
+    .map-chip { position: absolute; z-index: 500; top: 13px; left: 13px; display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid rgba(163,194,218,.2); border-radius: 10px; color: #e6f2f6; background: rgba(7,18,29,.86); backdrop-filter: blur(8px); font-size: 10px; }
+    .radar { width: 9px; height: 9px; border: 2px solid var(--cyan); border-radius: 50%; box-shadow: 0 0 0 4px rgba(61,217,196,.13); }
+    .location-chip { position: absolute; z-index: 500; right: 13px; bottom: 13px; max-width: calc(100% - 26px); padding: 8px 10px; border: 1px solid rgba(163,194,218,.2); border-radius: 9px; color: #c2d0db; background: rgba(7,18,29,.88); font-size: 10px; }
+    .side-column { display: grid; align-content: start; gap: 13px; padding-top: 49px; }
+    .card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(19,35,50,.96), rgba(13,27,40,.96)); }
+    .card-title { margin: 0; font-size: 12px; font-weight: 750; }
+    .card-caption { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .start-card { padding: 19px; border-color: rgba(61,217,196,.2); background: linear-gradient(145deg, rgba(25,61,65,.36), rgba(13,27,40,.96)); }
+    .start-card .button { width: 100%; margin-top: 15px; }
+    .checkpoint-list { display: grid; gap: 7px; margin-top: 13px; }
+    .checkpoint { display: grid; grid-template-columns: 27px minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 43px; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; background: rgba(255,255,255,.018); }
+    .checkpoint.current { border-color: rgba(61,217,196,.3); background: rgba(61,217,196,.07); }
+    .checkpoint.visited .checkpoint-number { color: #06201f; background: var(--green); }
+    .checkpoint-number { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid var(--line); border-radius: 8px; color: #a7b8c7; font-size: 10px; font-weight: 750; }
+    .checkpoint-name { overflow: hidden; color: #cbd8e2; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .checkpoint-distance { color: #8297a9; font-size: 9px; white-space: nowrap; }
+    .notice { padding: 11px 12px; border: 1px solid rgba(61,217,196,.18); border-radius: 11px; color: #d1f4ef; background: rgba(61,217,196,.07); font-size: 11px; line-height: 1.5; }
+    .notice.warning { border-color: rgba(255,198,110,.22); color: #ffe0ab; background: rgba(255,198,110,.07); }
+    .notice.error { border-color: rgba(255,125,131,.25); color: #ffadb1; background: rgba(255,125,131,.07); }
+    .entry-actions { display: grid; gap: 8px; margin-top: 12px; }
+    .entry-actions .button { width: 100%; }
+    .progress-track { height: 6px; margin-top: 12px; overflow: hidden; border-radius: 10px; background: rgba(255,255,255,.08); }
+    .progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--green)); transition: width .3s; }
+    .progress-label { display: flex; justify-content: space-between; margin-top: 7px; color: var(--muted); font-size: 9px; }
+    .events-list { display: grid; gap: 8px; max-height: 240px; margin-top: 12px; overflow: auto; }
+    .event-row { padding: 9px 10px; border: 1px solid rgba(166,194,218,.08); border-radius: 9px; background: rgba(255,255,255,.018); }
+    .event-row strong { display: block; color: #d5e0e9; font-size: 10px; }
+    .event-row span { display: block; margin-top: 4px; color: #8498aa; font-size: 9px; }
+    .utility-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .utility-row .button { min-height: 34px; padding: 0 10px; font-size: 10px; }
+    .sheet-note { padding: 11px 12px; color: #8295a7; font-size: 9px; line-height: 1.55; }
+    .modal-backdrop { position: fixed; z-index: 1200; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2,8,14,.78); backdrop-filter: blur(7px); }
+    .modal-backdrop.open { display: flex; }
+    .modal { width: min(100%, 470px); max-height: 92vh; overflow: auto; padding: 21px; border: 1px solid rgba(166,194,218,.2); border-radius: 17px; background: #112131; box-shadow: 0 24px 90px rgba(0,0,0,.5); }
+    .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .modal-head h2 { margin: 0; font-size: 17px; }
+    .modal-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .modal-close { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 9px; color: #b8c7d3; background: transparent; }
+    .photo-preview { display: block; max-width: 100%; max-height: 230px; margin-top: 10px; border-radius: 10px; }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
+    .toast { position: fixed; z-index: 1400; right: 18px; bottom: 18px; max-width: min(380px, calc(100vw - 36px)); padding: 12px 15px; border: 1px solid rgba(61,217,196,.25); border-radius: 11px; color: #e0faf6; background: #102a30; box-shadow: 0 12px 35px rgba(0,0,0,.35); font-size: 11px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: .2s; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .leaflet-div-icon { background: transparent; border: 0; }
+    .point-marker { display: grid; width: 28px; height: 28px; place-items: center; border: 2px solid #aaf8ed; border-radius: 50%; color: #06201f; background: var(--cyan); box-shadow: 0 0 0 5px rgba(61,217,196,.18), 0 3px 12px rgba(0,0,0,.4); font-size: 10px; font-weight: 800; }
+    .point-marker.done { border-color: #c4ffe3; background: var(--green); }
+    .point-marker.active { border-color: #fff0c9; color: #33220b; background: var(--amber); box-shadow: 0 0 0 8px rgba(255,198,110,.2), 0 0 22px rgba(255,198,110,.5); }
+    .guard-marker { width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; background: #448bff; box-shadow: 0 0 0 8px rgba(68,139,255,.18), 0 0 20px rgba(68,139,255,.8); }
+    .topbar { position: relative; z-index: 600; min-height: 66px; border-color: rgba(68,217,222,.12); background: rgba(4,11,19,.88); backdrop-filter: blur(16px); }
+    .system-readouts { display: flex; align-items: center; gap: clamp(9px, 2vw, 22px); margin-left: auto; }
+    .readout { display: inline-flex; align-items: center; gap: 7px; color: #82a1b3; font: 700 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .09em; white-space: nowrap; }
+    .readout b { color: #d7edf2; font-weight: 700; }
+    .readout-dot { width: 7px; height: 7px; border-radius: 50%; background: #788a99; }
+    .readout-dot.live { background: var(--cyan); box-shadow: 0 0 9px rgba(61,217,196,.8); animation: signal-pulse 1.8s infinite; }
+    .readout-dot.locked { background: var(--green); box-shadow: 0 0 10px rgba(100,223,169,.85); }
+    .readout-dot.lost { background: var(--red); box-shadow: 0 0 9px rgba(255,125,131,.7); }
+    .digital-clock { color: #a9c5d2; font: 700 13px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+    .battery-icon { position: relative; width: 19px; height: 10px; padding: 1px; border: 1px solid #819aa7; border-radius: 2px; }
+    .battery-icon::after { position: absolute; top: 2px; right: -3px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: #819aa7; content: ""; }
+    .battery-icon i { display: block; width: 70%; height: 100%; border-radius: 1px; background: var(--green); }
+    .layout { width: min(1700px, 100%); gap: 14px; padding-top: 15px; }
+    .heading-row { margin-bottom: 10px; }
+    .heading-row .eyebrow { letter-spacing: .22em; }
+    .heading-row h1 { font: 650 21px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; text-transform: uppercase; }
+    .round-status { border-color: rgba(72,180,213,.25); color: #9cc8d4; background: rgba(7,23,34,.68); backdrop-filter: blur(12px); font: 700 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .06em; text-transform: uppercase; }
+    .round-status.live { border-color: rgba(61,217,196,.42); color: var(--green); background: rgba(13,52,47,.4); box-shadow: 0 0 17px rgba(61,217,196,.08), inset 0 0 15px rgba(61,217,196,.04); }
+    .map-wrap { height: min(74vh, 790px); min-height: 450px; border-color: rgba(69,207,216,.28); border-radius: 14px; background: #06111b; box-shadow: 0 18px 60px rgba(0,0,0,.34), 0 0 26px rgba(18,161,179,.07); isolation: isolate; }
+    #map { filter: none; }
+    #map .tactical-dark-tiles { filter: invert(.91) hue-rotate(180deg) brightness(.8) contrast(.92) saturate(.75); }
+    .leaflet-control-zoom { margin-top: 65px !important; }
+    .leaflet-control-layers { border-color: rgba(61,217,196,.28) !important; background: rgba(5,15,24,.9) !important; backdrop-filter: blur(14px); }
+    .leaflet-control-zoom a { background: rgba(5,15,24,.9) !important; }
+    .map-wrap::after { position: absolute; z-index: 300; inset: 0; border: 1px solid rgba(61,217,196,.08); background-image: linear-gradient(rgba(53,179,204,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(53,179,204,.05) 1px, transparent 1px); background-size: 44px 44px; content: ""; pointer-events: none; mask-image: linear-gradient(to bottom, rgba(0,0,0,.34), transparent 82%); }
+    .radar-sweep { position: absolute; z-index: 310; top: 50%; left: 50%; width: min(56vw, 360px); aspect-ratio: 1; border: 1px solid rgba(52,213,221,.25); border-radius: 50%; opacity: 0; pointer-events: none; transform: translate(-50%,-50%); }
+    .radar-sweep::before, .radar-sweep::after { position: absolute; inset: 12%; border: 1px solid rgba(52,213,221,.2); border-radius: 50%; content: ""; }
+    .radar-sweep::after { inset: 25%; }
+    .map-wrap.tracking .radar-sweep { animation: radar-expand 3.4s ease-out infinite; }
+    .map-wrap.tracking .radar-sweep::before { animation: radar-expand 3.4s ease-out .8s infinite; }
+    .map-wrap.tracking .radar-sweep::after { animation: radar-expand 3.4s ease-out 1.6s infinite; }
+    .map-wrap.inside .radar-sweep, .map-wrap.inside .radar-sweep::before, .map-wrap.inside .radar-sweep::after { border-color: rgba(100,223,169,.5); animation-duration: 2s; }
+    .map-chip, .location-chip, .next-point-overlay, .sector-alert, .tactical-dock { border: 1px solid rgba(105,209,220,.25); color: #daf1f3; background: rgba(4,14,23,.82); box-shadow: 0 8px 28px rgba(0,0,0,.24), inset 0 0 18px rgba(51,180,198,.035); backdrop-filter: blur(15px); }
+    .map-chip { top: 14px; left: 14px; min-height: 35px; font: 700 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
+    .radar { position: relative; border-color: #45d5ec; }
+    .radar::after { position: absolute; inset: -5px; border: 1px solid rgba(69,213,236,.55); border-radius: 50%; content: ""; animation: signal-pulse 2s infinite; }
+    .map-wrap.tracking .radar { color: #58ceff; border-color: #58ceff; box-shadow: 0 0 11px rgba(88,206,255,.6); }
+    .map-wrap.inside .radar { border-color: var(--green); box-shadow: 0 0 11px rgba(100,223,169,.7); }
+    .location-chip { right: 14px; bottom: 14px; max-width: min(45%, 300px); padding: 9px 11px; font: 700 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .05em; }
+    .next-point-overlay { position: absolute; z-index: 520; bottom: 16px; left: 16px; display: grid; width: min(290px, calc(100% - 32px)); gap: 5px; padding: 13px 15px; border-radius: 12px; transition: border-color .25s, box-shadow .25s, transform .25s; }
+    .next-kicker, .dock-label { color: #6db9c7; font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .18em; }
+    .next-point-overlay strong { overflow: hidden; color: #f0fbff; font: 700 12px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .035em; text-overflow: ellipsis; white-space: nowrap; }
+    .next-distance { color: #56d8ec; font: 700 24px ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .range-track { height: 3px; overflow: hidden; border-radius: 4px; background: rgba(124,173,191,.19); }
+    .range-track i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #40c6f0, #65edcf); box-shadow: 0 0 8px #3edee0; transition: width .35s ease; }
+    .range-caption { color: #88a7b5; font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .map-wrap.inside .next-point-overlay { border-color: rgba(100,223,169,.58); box-shadow: 0 0 26px rgba(100,223,169,.15), inset 0 0 20px rgba(100,223,169,.06); transform: translateY(-3px); }
+    .map-wrap.inside .next-kicker, .map-wrap.inside .next-distance { color: var(--green); }
+    .map-wrap.inside .range-track i { background: var(--green); box-shadow: 0 0 10px var(--green); }
+    .sector-alert { position: absolute; z-index: 540; top: 61px; left: 50%; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 32px); padding: 11px 15px; border-color: rgba(100,223,169,.45); border-radius: 11px; color: #9bffc9; opacity: 0; pointer-events: none; transform: translate(-50%,-10px) scale(.96); transition: opacity .25s, transform .25s; }
+    .map-wrap.inside .sector-alert { opacity: 1; transform: translate(-50%,0) scale(1); }
+    .sector-alert b { display: block; font: 800 10px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .13em; }
+    .sector-alert small { display: block; max-width: 340px; margin-top: 4px; color: #c6e9dd; font-size: 10px; }
+    .alert-pulse { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 5px rgba(100,223,169,.12), 0 0 15px rgba(100,223,169,.75); animation: signal-pulse 1.2s infinite; }
+    .tactical-dock { position: absolute; z-index: 550; bottom: 17px; left: 50%; width: min(440px, calc(100% - 32px)); padding: 12px; border-color: rgba(100,223,169,.5); border-radius: 15px; box-shadow: 0 0 35px rgba(100,223,169,.15), 0 12px 38px rgba(0,0,0,.4), inset 0 0 24px rgba(100,223,169,.06); opacity: 0; pointer-events: none; transform: translate(-50%,24px) scale(.97); transition: opacity .28s, transform .32s cubic-bezier(.2,.8,.2,1); }
+    .tactical-dock:not(.hidden) { opacity: 1; pointer-events: auto; transform: translate(-50%,0) scale(1); animation: dock-arrive .42s cubic-bezier(.2,.8,.2,1) both; }
+    .entry-actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; margin-top: 8px; }
+    .entry-actions .button { width: 100%; min-height: 48px; }
+    .entry-actions .button.primary { color: #031610; background: linear-gradient(135deg, #9dffc6, #45dea9 50%, #24a98e); box-shadow: 0 0 21px rgba(75,236,171,.32), inset 0 1px 0 rgba(255,255,255,.7); }
+    .entry-actions .button.primary span { font-size: 19px; }
+    .entry-actions .button.secondary { border-color: rgba(100,223,169,.36); color: #d3ffe5; background: rgba(14,48,40,.72); }
+    .map-wrap.inside { border-color: rgba(100,223,169,.58); box-shadow: 0 0 0 1px rgba(100,223,169,.11), 0 0 44px rgba(100,223,169,.12), 0 18px 60px rgba(0,0,0,.34); }
+    .map-wrap.pending .sector-alert { border-color: rgba(255,198,110,.5); color: #ffe0a3; box-shadow: 0 8px 28px rgba(0,0,0,.24), 0 0 20px rgba(255,198,110,.1); }
+    .map-wrap.pending .sector-alert small { color: #f3d9b2; }
+    .map-wrap.pending .alert-pulse { background: var(--amber); box-shadow: 0 0 0 5px rgba(255,198,110,.12), 0 0 15px rgba(255,198,110,.75); }
+    .map-wrap.pending .tactical-dock { border-color: rgba(255,198,110,.46); box-shadow: 0 0 35px rgba(255,198,110,.12), 0 12px 38px rgba(0,0,0,.4), inset 0 0 24px rgba(255,198,110,.045); }
+    .map-wrap.inside #map .tactical-dark-tiles { filter: invert(.91) hue-rotate(180deg) brightness(.8) contrast(.92) saturate(.75); }
+    .side-column .card { border-color: rgba(76,157,181,.2); background: linear-gradient(145deg, rgba(10,25,36,.88), rgba(7,17,27,.86)); backdrop-filter: blur(12px); }
+    .active-card .notice { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .modal-backdrop { background: rgba(1,7,13,.82); backdrop-filter: blur(14px); }
+    .modal { border-color: rgba(73,221,205,.33); background: linear-gradient(145deg, rgba(11,29,39,.98), rgba(5,15,24,.98)); box-shadow: 0 0 50px rgba(44,202,194,.1), 0 24px 90px rgba(0,0,0,.55); }
+    .terminal-kicker { display: block; margin-bottom: 7px; color: var(--cyan); font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .18em; }
+    .terminal-field label, .camera-field label { color: #85c3cb; font: 800 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+    .terminal-field textarea { min-height: 120px; border-color: rgba(58,205,202,.23); color: #9fffd8; background: rgba(1,10,16,.83); font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .025em; }
+    .camera-viewfinder { position: relative; display: grid; min-height: 155px; place-items: center; overflow: hidden; padding: 30px 16px 16px; border: 1px solid rgba(77,210,202,.23); border-radius: 10px; background: radial-gradient(ellipse, rgba(19,75,74,.25), transparent 68%), repeating-linear-gradient(0deg, transparent 0 24px, rgba(50,202,195,.06) 25px), rgba(1,9,15,.75); }
+    .camera-viewfinder::before, .camera-viewfinder::after { position: absolute; top: 50%; left: 50%; content: ""; pointer-events: none; }
+    .camera-viewfinder::before { width: 76px; height: 76px; border: 1px solid rgba(70,229,205,.3); border-radius: 50%; transform: translate(-50%,-50%); }
+    .camera-viewfinder::after { width: 100%; height: 1px; background: rgba(70,229,205,.13); box-shadow: 0 -36px 0 rgba(70,229,205,.07), 0 36px 0 rgba(70,229,205,.07); }
+    .frame-corner { position: absolute; z-index: 3; width: 16px; height: 16px; border-color: #61ead1; border-style: solid; }
+    .corner-tl { top: 9px; left: 9px; border-width: 2px 0 0 2px; }
+    .corner-tr { top: 9px; right: 9px; border-width: 2px 2px 0 0; }
+    .corner-bl { bottom: 9px; left: 9px; border-width: 0 0 2px 2px; }
+    .corner-br { right: 9px; bottom: 9px; border-width: 0 2px 2px 0; }
+    .viewfinder-mark { position: absolute; z-index: 2; top: 15px; color: rgba(132,238,218,.72); font: 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
+    .camera-viewfinder input[type="file"] { position: relative; z-index: 4; max-width: 280px; border-color: rgba(67,205,201,.28); background: rgba(3,15,21,.8); }
+    .camera-viewfinder .photo-preview { position: relative; z-index: 4; }
+    @keyframes signal-pulse { 0%,100% { opacity: 1; } 50% { opacity: .48; } }
+    @keyframes radar-expand { 0% { opacity: .48; transform: scale(.48); } 100% { opacity: 0; transform: scale(1.16); } }
+    @keyframes dock-arrive { from { filter: brightness(1.5); } to { filter: brightness(1); } }
+    @media (max-width: 900px) {
+      .topbar { min-height: 58px; padding: 8px 14px; }
+      .topbar .brand-mark { width: 33px; height: 33px; }
+      .topbar .brand-caption { display: none; }
+      .system-readouts { gap: 10px; }
+      .operator { gap: 7px; }
+      .layout { display: block; padding: 9px 10px 20px; }
+      .heading-row { position: absolute; z-index: 520; top: 70px; left: 20px; right: 20px; align-items: flex-start; margin: 0; pointer-events: none; }
+      .heading-row > div:first-child { display: none; }
+      .round-status { margin-left: auto; pointer-events: auto; }
+      .map-wrap { height: calc(100svh - 80px); min-height: 490px; border-radius: 16px; }
+      .side-column { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; padding-top: 12px; }
+      .side-column > .card { min-width: 0; }
+      .side-column > .sheet-note { grid-column: 1/-1; }
+      #start-card { position: fixed; z-index: 700; bottom: 16px; left: 50%; width: min(440px, calc(100vw - 28px)); border-color: rgba(61,217,196,.42); background: rgba(5,20,29,.92); box-shadow: 0 0 30px rgba(61,217,196,.11), 0 12px 40px rgba(0,0,0,.42); backdrop-filter: blur(18px); transform: translateX(-50%); }
+      .map-wrap:not(.tracking):not(.inside) .next-point-overlay, .map-wrap:not(.tracking):not(.inside) .location-chip { display: none; }
+    }
+    @media (max-width: 560px) {
+      .topbar { min-height: 56px; gap: 7px; padding: 7px 10px; }
+      .topbar .brand { gap: 7px; }
+      .topbar .brand-mark { width: 30px; height: 30px; font-size: 15px; }
+      .topbar .brand-name { font-size: 11px; letter-spacing: .05em; }
+      .system-readouts { gap: 8px; }
+      .readout { gap: 4px; font-size: 7px; letter-spacing: .03em; }
+      .readout b { font-size: 7px; }
+      .digital-clock { font-size: 10px; letter-spacing: .02em; }
+      .battery-icon { width: 15px; height: 8px; }
+      .battery-icon::after { top: 1px; }
+      .operator { gap: 5px; font-size: 0; }
+      .operator-dot { width: 7px; height: 7px; }
+      #operator-label { display: none; }
+      #logout-button { min-height: 29px !important; padding: 0 7px !important; font-size: 9px; }
+      .layout { padding: 6px 6px 16px; }
+      .heading-row { top: 62px; right: 13px; left: 13px; }
+      .round-status { padding: 7px 9px; font-size: 8px; }
+      .map-wrap { height: calc(100svh - 68px); min-height: 460px; border-radius: 13px; }
+      .map-chip { top: 12px; left: 10px; max-width: 62%; min-height: 30px; padding: 7px 9px; font-size: 7px; letter-spacing: .05em; }
+      .leaflet-control-layers { margin-top: 5px !important; margin-right: 5px !important; }
+      .leaflet-control-layers-expanded { padding: 7px !important; }
+      .leaflet-control-layers label { font-size: 9px; }
+      .leaflet-control-zoom { margin-top: 48px !important; margin-left: 5px !important; }
+      .leaflet-control-zoom a { width: 27px !important; height: 27px !important; line-height: 27px !important; }
+      .next-point-overlay { bottom: 94px; left: 10px; width: min(230px, calc(100% - 20px)); gap: 3px; padding: 9px 11px; }
+      .next-distance { font-size: 20px; }
+      .next-point-overlay strong { font-size: 10px; }
+      .range-caption { font-size: 8px; }
+      .location-chip { right: 10px; bottom: 101px; max-width: calc(100% - 250px); padding: 7px 8px; font-size: 7px; text-align: right; }
+      .sector-alert { top: 103px; padding: 9px 12px; }
+      .sector-alert b { font-size: 8px; }
+      .sector-alert small { font-size: 9px; }
+      .tactical-dock { bottom: 9px; width: calc(100% - 18px); padding: 9px; border-radius: 13px; }
+      .dock-label { font-size: 7px; letter-spacing: .12em; }
+      .entry-actions { gap: 7px; margin-top: 7px; }
+      .entry-actions .button { min-height: 44px; padding: 0 8px; font-size: 10px; }
+      .side-column { grid-template-columns: 1fr; }
+      .side-column > .card:not(.start-card):not(.hidden) { padding: 12px; }
+      .radar-sweep { width: min(75vw, 300px); }
+    }
+    @media (max-width: 360px) {
+      .topbar .brand-name { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
+      .system-readouts { gap: 5px; }
+      .readout { font-size: 0; }
+      .readout b { font-size: 7px; }
+      .next-point-overlay { width: 195px; }
+      .location-chip { max-width: calc(100% - 210px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .map-wrap.tracking .radar-sweep, .map-wrap.tracking .radar-sweep::before, .map-wrap.tracking .radar-sweep::after, .alert-pulse, .readout-dot.live, .radar::after { animation: none !important; }
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: minmax(0,1fr); }
+      .side-column { grid-template-columns: repeat(2,minmax(0,1fr)); padding-top: 0; }
+      .map-wrap { height: calc(100svh - 80px); min-height: 490px; }
+    }
+    @media (max-width: 560px) {
+      .topbar { min-height: 56px; padding: 7px 10px; }
+      .operator { font-size: 10px; }
+      .layout { gap: 8px; padding: 6px 6px 16px; }
+      .heading-row { align-items: flex-start; }
+      .heading-row h1 { font-size: 19px; }
+      .heading-row p { max-width: 250px; font-size: 10px; }
+      .round-status { padding: 7px 8px; font-size: 9px; }
+      .map-wrap { height: calc(100svh - 68px); min-height: 460px; }
+      .side-column { grid-template-columns: 1fr; gap: 10px; }
+      .card { padding: 14px; }
+      .checkpoint-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .checkpoint { grid-template-columns: 25px minmax(0,1fr); }
+      .checkpoint-distance { display: none; }
+      .login-card { padding: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+    .app:not(.hidden) { position: fixed; z-index: 1; inset: 0; min-height: 0; overflow: hidden; background: #050b12; }
+    .topbar { position: absolute; z-index: 810; inset: 0 0 auto; display: grid; min-height: 70px; grid-template-columns: 1fr auto 1fr; padding: 9px 22px; border: 0; background: linear-gradient(180deg, rgba(3,9,15,.88), rgba(3,9,15,.4) 75%, transparent); backdrop-filter: none; }
+    .topbar .brand { gap: 9px; }
+    .topbar .brand-mark { width: 35px; height: 35px; }
+    .topbar .brand-name { font-size: 12px; }
+    .topbar .brand-caption { display: none; }
+    .system-readouts { justify-self: center; gap: 20px; padding: 9px 17px; border: 1px solid rgba(93,185,207,.2); border-radius: 30px; background: rgba(4,14,22,.62); backdrop-filter: blur(16px); }
+    .operator { justify-self: end; gap: 9px; padding: 5px 6px 5px 12px; border: 1px solid rgba(93,185,207,.17); border-radius: 30px; background: rgba(4,14,22,.66); backdrop-filter: blur(14px); }
+    .layout { position: absolute; inset: 0; display: block; width: 100%; max-width: none; margin: 0; padding: 0; }
+    .main-column { position: absolute; inset: 0; }
+    .heading-row { position: absolute; z-index: 520; top: 167px; right: auto; left: 17px; margin: 0; pointer-events: none; }
+    .heading-row > div:first-child { display: none; }
+    .round-status { pointer-events: auto; }
+    .map-wrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+    #map { position: absolute; inset: 0; }
+    .map-wrap::after { background-size: 54px 54px; }
+    .leaflet-control-zoom { margin-top: 80px !important; margin-left: 14px !important; }
+    .leaflet-control-layers { margin-top: 77px !important; margin-right: 15px !important; }
+    .map-chip { top: 83px; left: 65px; }
+    .map-details-button { position: absolute; z-index: 620; top: 128px; left: 17px; display: inline-flex; min-height: 35px; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(92,191,210,.27); border-radius: 9px; color: #bcdce2; background: rgba(4,14,22,.77); box-shadow: 0 8px 23px rgba(0,0,0,.2); backdrop-filter: blur(14px); font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+    .map-details-button:hover, .map-details-button[aria-expanded="true"] { border-color: rgba(61,217,196,.55); color: #68e9d4; background: rgba(5,34,37,.86); }
+    .map-details-button:first-letter { font-size: 15px; }
+    .next-point-overlay { bottom: 22px; left: 22px; width: min(320px, calc(100% - 44px)); padding: 16px 18px; border-radius: 14px; }
+    .next-distance { font-size: 30px; }
+    .location-chip { right: 22px; bottom: 25px; max-width: 235px; }
+    .map-wrap:not(.tracking):not(.inside) .next-point-overlay, .map-wrap:not(.tracking):not(.inside) .location-chip { display: none; }
+    .map-start-card { position: absolute; z-index: 560; right: 22px; bottom: 22px; left: auto; display: flex; width: min(420px, calc(100% - 44px)); align-items: center; justify-content: space-between; gap: 18px; padding: 15px 17px; border: 1px solid rgba(64,194,213,.37); border-radius: 14px; background: rgba(4,16,25,.86); box-shadow: 0 14px 40px rgba(0,0,0,.38), 0 0 25px rgba(40,182,204,.08); backdrop-filter: blur(18px); }
+    .map-start-card.hidden { display: none !important; }
+    .start-card-copy { display: grid; gap: 6px; }
+    .start-card-copy strong { color: #e7f7fb; font: 700 14px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .03em; }
+    .map-start-card .button { min-height: 47px; padding: 0 18px; border-radius: 10px; font: 800 10px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; white-space: nowrap; }
+    .side-column { position: fixed; z-index: 850; top: 82px; right: 16px; bottom: 16px; display: grid; width: min(360px, calc(100vw - 28px)); grid-auto-rows: max-content; gap: 11px; padding: 15px; overflow-y: auto; border: 1px solid rgba(76,201,210,.3); border-radius: 18px; background: rgba(4,13,21,.91); box-shadow: 0 18px 60px rgba(0,0,0,.52), 0 0 30px rgba(44,180,189,.08); backdrop-filter: blur(22px); opacity: 0; pointer-events: none; transform: translateX(calc(100% + 28px)); transition: opacity .24s ease, transform .32s cubic-bezier(.2,.8,.2,1); }
+    .side-column.open { opacity: 1; pointer-events: auto; transform: translateX(0); }
+    .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 10px; border-bottom: 1px solid rgba(96,175,191,.16); }
+    .drawer-header > div { display: grid; gap: 5px; }
+    .drawer-kicker { color: #65c8ce; font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .17em; }
+    .drawer-header strong { color: #ebf8fa; font: 700 14px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .drawer-close { width: 32px; height: 32px; border: 1px solid rgba(98,180,194,.22); border-radius: 9px; color: #d5edf0; background: rgba(255,255,255,.04); font-size: 20px; }
+    .side-column .card { padding: 13px; border-color: rgba(90,180,195,.2); border-radius: 13px; background: rgba(15,31,42,.66); box-shadow: none; }
+    .side-column .sheet-note { line-height: 1.7; }
+    .side-column .checkpoint-list { gap: 4px; }
+    .side-column .checkpoint { min-height: 37px; padding: 4px 7px; }
+    .tactical-dock { right: 22px; bottom: 20px; left: auto; width: min(435px, calc(100% - 44px)); padding: 15px; border-radius: 16px; transform: translateY(22px) scale(.97); }
+    .tactical-dock:not(.hidden) { transform: translateY(0) scale(1); }
+    .entry-actions { grid-template-columns: 112px minmax(0,1fr); align-items: center; }
+    .entry-actions .button.primary { position: relative; display: flex; width: 102px; height: 102px; min-height: 102px; flex-direction: column; gap: 1px; justify-self: center; padding: 0; border: 1px solid rgba(186,255,214,.8); border-radius: 50%; color: #05231b; background: radial-gradient(circle at 34% 25%, #d9ffea 0, #78f8bb 22%, #25d79d 57%, #058c76 100%); box-shadow: 0 0 0 5px rgba(99,241,180,.1), 0 0 0 10px rgba(67,221,183,.055), 0 0 34px rgba(73,235,174,.42), inset 0 2px 5px rgba(255,255,255,.8), inset 0 -8px 14px rgba(0,85,69,.35); }
+    .entry-actions .button.primary::before, .entry-actions .button.primary::after { position: absolute; inset: -8px; border: 1px solid rgba(100,223,169,.38); border-radius: 50%; content: ""; pointer-events: none; }
+    .entry-actions .button.primary::after { inset: -14px; border-color: rgba(100,223,169,.18); }
+    .entry-actions .button.primary .reactor-icon { font-size: 31px; line-height: 1; text-shadow: 0 0 13px rgba(255,255,255,.65); }
+    .reactor-label { font: 900 8px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; text-align: center; }
+    .entry-actions #clear-button { width: 100%; min-height: 48px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .map-wrap.inside .next-point-overlay { bottom: 154px; }
+    .map-wrap.inside .location-chip { display: none; }
+    .sector-alert { top: 22%; }
+    .toast { z-index: 1500; bottom: 22px; }
+    @media (max-width: 900px) {
+      .topbar { min-height: 60px; grid-template-columns: 1fr auto 1fr; padding: 7px 14px; }
+      .system-readouts { gap: 10px; padding: 8px 11px; }
+      .layout { padding: 0; }
+      .main-column { position: absolute; inset: 0; }
+      .heading-row { top: 158px; right: auto; left: 12px; }
+      .round-status { margin-left: auto; }
+      .map-wrap { height: 100%; min-height: 0; border-radius: 0; }
+      .side-column { top: 68px; right: 10px; bottom: 10px; width: min(370px, calc(100vw - 20px)); padding: 13px; }
+      .map-chip { top: 73px; left: 56px; }
+      .leaflet-control-zoom { margin-top: 68px !important; margin-left: 9px !important; }
+      .leaflet-control-layers { margin-top: 66px !important; margin-right: 9px !important; }
+      .map-details-button { top: 116px; left: 12px; }
+      .map-start-card { right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); width: min(410px, calc(100% - 24px)); }
+      .next-point-overlay { bottom: 17px; left: 12px; }
+      .map-wrap.inside .next-point-overlay { bottom: 165px; }
+      .location-chip { right: 12px; bottom: 20px; }
+      .tactical-dock { right: 12px; bottom: max(13px, env(safe-area-inset-bottom)); width: min(430px, calc(100% - 24px)); }
+      .sector-alert { top: 22%; }
+    }
+    @media (max-width: 560px) {
+      .topbar { min-height: 54px; grid-template-columns: 1fr auto auto; gap: 5px; padding: 5px 8px; }
+      .topbar .brand { gap: 6px; }
+      .topbar .brand-mark { width: 29px; height: 29px; font-size: 14px; }
+      .topbar .brand-name { font-size: 10px; letter-spacing: .04em; }
+      .system-readouts { gap: 7px; padding: 7px 8px; }
+      .readout { gap: 4px; font-size: 7px; letter-spacing: .02em; }
+      .readout b { font-size: 7px; }
+      .digital-clock { font-size: 9px; letter-spacing: .01em; }
+      .battery-icon { width: 15px; height: 8px; }
+      .operator { gap: 5px; padding: 3px; border: 0; background: transparent; box-shadow: none; }
+      #operator-label { display: none; }
+      #logout-button { min-height: 28px !important; padding: 0 7px !important; font-size: 9px; }
+      .heading-row { top: 147px; right: auto; left: 9px; }
+      .round-status { padding: 6px 8px; font-size: 7px; }
+      .map-chip { top: 67px; left: 50px; min-height: 28px; max-width: 65%; padding: 6px 8px; font-size: 7px; letter-spacing: .04em; }
+      .leaflet-control-zoom { margin-top: 62px !important; margin-left: 6px !important; }
+      .leaflet-control-layers { margin-top: 60px !important; margin-right: 6px !important; }
+      .leaflet-control-layers-expanded { padding: 7px !important; }
+      .leaflet-control-layers label { font-size: 9px; }
+      .map-details-button { top: 106px; left: 9px; min-height: 31px; gap: 6px; padding: 0 9px; font-size: 7px; }
+      .next-point-overlay { bottom: 94px; left: 9px; width: min(220px, calc(100% - 18px)); gap: 3px; padding: 9px 11px; border-radius: 12px; }
+      .next-kicker, .dock-label { font-size: 7px; }
+      .next-point-overlay strong { font-size: 9px; }
+      .next-distance { font-size: 21px; }
+      .range-caption { font-size: 8px; }
+      .location-chip { right: 9px; bottom: 101px; max-width: calc(100% - 238px); padding: 7px; font-size: 7px; text-align: right; }
+      .sector-alert { top: 23%; gap: 8px; max-width: calc(100% - 22px); padding: 9px 11px; }
+      .sector-alert b { font-size: 8px; }
+      .sector-alert small { font-size: 8px; }
+      .map-start-card { right: 9px; bottom: max(9px, env(safe-area-inset-bottom)); left: 9px; width: auto; gap: 8px; padding: 9px 10px; border-radius: 13px; }
+      .start-card-copy { gap: 4px; }
+      .start-card-copy strong { font-size: 11px; }
+      .map-start-card .button { min-height: 43px; padding: 0 12px; font-size: 8px; }
+      .tactical-dock { right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); left: 8px; width: auto; padding: 9px; border-radius: 13px; }
+      .entry-actions { grid-template-columns: 104px minmax(0,1fr); gap: 7px; margin-top: 11px; }
+      .entry-actions .button.primary { width: 88px; height: 88px; min-height: 88px; }
+      .entry-actions .button.primary::before { inset: -6px; }
+      .entry-actions .button.primary::after { inset: -11px; }
+      .entry-actions .button.primary .reactor-icon { font-size: 27px; }
+      .reactor-label { font-size: 7px; }
+      .entry-actions #clear-button { min-height: 45px; padding: 0 7px; font-size: 8px; }
+      .map-wrap.inside .next-point-overlay { bottom: 173px; }
+      .side-column { top: 61px; right: 7px; bottom: max(7px, env(safe-area-inset-bottom)); width: min(365px, calc(100vw - 14px)); gap: 8px; padding: 11px; border-radius: 15px; }
+      .side-column .card { padding: 11px; }
+      .toast { right: 10px; bottom: 10px; }
+    }
+    @media (max-width: 360px) {
+      .topbar { grid-template-columns: auto 1fr auto; }
+      .system-readouts { justify-self: end; gap: 5px; }
+      .readout { font-size: 0; }
+      .readout b { font-size: 7px; }
+      .digital-clock { font-size: 8px; }
+      .next-point-overlay { width: 190px; }
+      .location-chip { max-width: calc(100% - 205px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .map-wrap.tracking .radar-sweep, .map-wrap.tracking .radar-sweep::before, .map-wrap.tracking .radar-sweep::after, .alert-pulse, .readout-dot.live, .radar::after { animation: none !important; }
+    }
+    .login-screen { position: relative; min-height: 100vh; overflow: hidden; padding: clamp(18px, 4vw, 58px); background: radial-gradient(ellipse at 23% 42%, rgba(17,112,137,.19), transparent 43%), radial-gradient(ellipse at 80% 10%, rgba(44,105,138,.11), transparent 34%), #050b12; }
+    .login-screen::before { position: absolute; inset: 0; background: linear-gradient(rgba(54,153,175,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(54,153,175,.035) 1px, transparent 1px); background-size: 44px 44px; content: ""; mask-image: linear-gradient(90deg, black, transparent 88%); pointer-events: none; }
+    .login-screen::after { position: absolute; right: -180px; bottom: -290px; width: 620px; height: 620px; border: 1px solid rgba(73,183,204,.08); border-radius: 50%; box-shadow: 0 0 0 60px rgba(73,183,204,.018), 0 0 0 120px rgba(73,183,204,.014), 0 0 0 180px rgba(73,183,204,.01); content: ""; pointer-events: none; }
+    .login-shell { position: relative; z-index: 1; display: grid; width: min(1120px, 100%); min-height: min(690px, calc(100vh - 64px)); grid-template-columns: minmax(0,1.12fr) minmax(370px,.78fr); align-items: stretch; gap: clamp(30px,7vw,100px); margin: auto; }
+    .login-hero { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 9px 0 5px; }
+    .login-brand { position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; }
+    .login-brand .brand-mark { width: 45px; height: 45px; border: 1px solid rgba(61,217,196,.38); border-radius: 13px; color: #68f0dd; background: linear-gradient(145deg, rgba(61,217,196,.16), rgba(54,136,199,.08)); box-shadow: 0 0 25px rgba(61,217,196,.1); }
+    .login-brand .brand-name { color: #e8f8fc; font: 800 13px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .14em; }
+    .login-brand .brand-caption { color: #7291a0; font: 700 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .17em; }
+    .login-hero-copy { position: relative; z-index: 2; max-width: 530px; margin-top: auto; padding: 45px 0 18px; }
+    .login-overline { display: flex; align-items: center; gap: 9px; color: #69d5d7; font: 800 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .17em; }
+    .login-overline i { width: 7px; height: 7px; border-radius: 50%; background: #57e5c4; box-shadow: 0 0 13px rgba(87,229,196,.85); animation: signal-pulse 1.7s infinite; }
+    .login-hero-copy h1 { margin: 22px 0 16px; color: #f2f8fb; font: 650 clamp(35px,5.2vw,60px)/1.04 "Segoe UI", sans-serif; letter-spacing: -.055em; }
+    .login-hero-copy h1 span { color: #63dfd0; text-shadow: 0 0 35px rgba(66,211,196,.18); }
+    .login-hero-copy p { max-width: 415px; margin: 0; color: #95aab7; font-size: 13px; line-height: 1.8; }
+    .login-radar { position: absolute; top: 50%; right: -9px; width: clamp(240px,31vw,370px); aspect-ratio: 1; overflow: hidden; border: 1px solid rgba(72,199,214,.17); border-radius: 50%; background: radial-gradient(circle, rgba(25,109,119,.16), rgba(8,26,37,.12) 49%, rgba(4,13,22,.06) 70%); box-shadow: inset 0 0 65px rgba(45,167,182,.08), 0 0 60px rgba(37,149,171,.06); transform: translateY(-49%); }
+    .login-radar-grid { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(rgba(67,175,192,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(67,175,192,.1) 1px, transparent 1px); background-size: 25% 25%; mask-image: radial-gradient(circle, black 0 48%, transparent 72%); }
+    .login-radar::before, .login-radar::after { position: absolute; z-index: 1; background: rgba(74,190,202,.21); content: ""; }
+    .login-radar::before { top: 50%; right: 5%; left: 5%; height: 1px; }
+    .login-radar::after { top: 5%; bottom: 5%; left: 50%; width: 1px; }
+    .login-radar-ring { position: absolute; top: 50%; left: 50%; border: 1px solid rgba(63,200,197,.23); border-radius: 50%; transform: translate(-50%,-50%); }
+    .ring-one { width: 33%; height: 33%; }
+    .ring-two { width: 62%; height: 62%; }
+    .ring-three { width: 88%; height: 88%; border-color: rgba(63,200,197,.13); }
+    .login-radar-sweep { position: absolute; z-index: 2; top: 50%; left: 50%; width: 50%; height: 50%; border-top: 1px solid rgba(88,240,206,.72); border-right: 1px solid rgba(88,240,206,.12); border-radius: 0 100% 0 0; background: conic-gradient(from 0deg, rgba(70,220,194,.22), transparent 73%); transform-origin: top left; animation: login-radar-rotate 8s linear infinite; }
+    .login-radar-center { position: absolute; z-index: 4; top: 50%; left: 50%; display: grid; width: 35px; height: 35px; place-items: center; border: 1px solid rgba(116,255,224,.7); border-radius: 50%; color: #8dffe1; background: rgba(27,128,112,.22); box-shadow: 0 0 0 6px rgba(61,217,196,.07), 0 0 24px rgba(61,217,196,.55); font-size: 19px; transform: translate(-50%,-50%); }
+    .login-radar-point { position: absolute; z-index: 5; display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid rgba(108,243,211,.72); border-radius: 50%; color: #b7ffeb; background: rgba(12,83,77,.68); box-shadow: 0 0 16px rgba(77,231,193,.38); font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .point-one { top: 24%; left: 65%; }
+    .point-two { top: 63%; left: 25%; }
+    .point-three { top: 70%; left: 68%; }
+    .radar-coordinate { position: absolute; z-index: 3; color: rgba(127,185,193,.56); font: 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+    .coordinate-one { top: 12%; left: 14%; }
+    .coordinate-two { right: 8%; bottom: 15%; }
+    .login-mission-strip { position: relative; z-index: 2; display: flex; width: min(530px,100%); align-items: center; gap: 20px; margin-top: 14px; padding: 14px 0; border-top: 1px solid rgba(111,170,188,.18); border-bottom: 1px solid rgba(111,170,188,.18); }
+    .login-mission-strip > div { display: grid; gap: 5px; }
+    .login-mission-strip > i { width: 1px; height: 24px; background: rgba(111,170,188,.22); }
+    .mission-label { color: #688491; font: 800 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .17em; }
+    .login-mission-strip strong { color: #d0e5ea; font: 750 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .05em; }
+    .login-hero-foot { position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 10px; margin-top: 16px; color: #516a79; font: 700 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+    .login-card { position: relative; align-self: center; width: 100%; padding: clamp(25px,3.2vw,38px); border: 1px solid rgba(108,191,208,.25); border-radius: 18px; background: linear-gradient(145deg, rgba(13,27,39,.91), rgba(5,14,23,.94)); box-shadow: 0 28px 90px rgba(0,0,0,.42), inset 0 1px 0 rgba(224,255,255,.035), 0 0 45px rgba(30,152,173,.055); backdrop-filter: blur(22px); }
+    .login-card::before { position: absolute; top: -1px; left: 32px; width: 76px; height: 2px; background: linear-gradient(90deg, transparent, #4ce4d0, transparent); box-shadow: 0 0 15px rgba(76,228,208,.55); content: ""; }
+    .login-form-kicker { display: flex; align-items: center; gap: 11px; color: #7894a1; font: 700 8px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .13em; }
+    .login-form-kicker b { color: #a9c4cf; font-size: 9px; }
+    .login-form-icon { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(69,220,201,.3); border-radius: 10px; color: #6ae6d2; background: rgba(54,193,177,.09); font-size: 20px; }
+    .login-card h2 { margin: 23px 0 6px; color: #f0f7fa; font-size: 25px; letter-spacing: -.035em; }
+    .login-form-intro { margin: 0 0 23px; color: #899fac; font-size: 11px; line-height: 1.6; }
+    .login-card .field { gap: 8px; margin-top: 17px; }
+    .login-card .field label { color: #8ba5b2; font: 800 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .13em; }
+    .login-card .field input { min-height: 49px; padding: 0 13px; border-color: rgba(114,166,184,.2); border-radius: 9px; color: #ecf8fa; background: rgba(2,10,17,.72); font-size: 12px; }
+    .login-card .field input::placeholder { color: #506876; }
+    .login-card .field input:focus { border-color: rgba(74,225,204,.68); background: rgba(5,20,26,.92); box-shadow: 0 0 0 3px rgba(61,217,196,.08), 0 0 20px rgba(61,217,196,.06); }
+    .login-shift-panel { display: flex; align-items: center; gap: 11px; margin-top: 20px; padding: 12px; border: 1px solid rgba(69,202,190,.19); border-radius: 10px; background: linear-gradient(100deg, rgba(36,141,132,.1), rgba(22,68,82,.13)); }
+    .shift-signal { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(76,227,194,.32); border-radius: 9px; background: rgba(56,204,176,.1); }
+    .shift-signal i { width: 7px; height: 7px; border-radius: 50%; background: #63edc8; box-shadow: 0 0 12px #63edc8; }
+    .login-shift-panel > span:nth-child(2) { display: grid; gap: 4px; }
+    .login-shift-panel small { color: #77949f; font: 800 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
+    .login-shift-panel strong { color: #b9f4df; font: 800 12px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .06em; }
+    .shift-clock { margin-left: auto; color: #a9c4d0; font: 700 15px ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .shift-schedule { display: flex; align-items: center; gap: 6px; margin: 9px 0 0; color: #607c88; font: 700 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .025em; }
+    .shift-schedule b { color: #8ea9b4; }
+    .shift-schedule > span { width: 1px; height: 11px; margin: 0 3px; background: rgba(111,170,188,.25); }
+    .login-card .button.full { display: flex; min-height: 49px; justify-content: space-between; margin-top: 23px; padding: 0 16px; border-radius: 9px; color: #04221e; background: linear-gradient(105deg, #6af0d0, #7bd5f2); box-shadow: 0 8px 26px rgba(61,217,196,.2), inset 0 1px 0 rgba(255,255,255,.64); font: 850 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .14em; }
+    .login-card .button.full b { font-size: 18px; transition: transform .18s; }
+    .login-card .button.full:hover b { transform: translateX(4px); }
+    .login-security { display: flex; align-items: flex-start; gap: 9px; margin-top: 17px; padding-top: 14px; border-top: 1px solid rgba(109,155,175,.12); }
+    .login-security > span { color: #66c9c4; font-size: 14px; }
+    .login-security p { margin: 0; color: #6f8793; font-size: 9px; line-height: 1.65; }
+    .login-form-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 17px; color: #4e6572; font: 700 7px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
+    @keyframes login-radar-rotate { to { transform: rotate(360deg); } }
+    @media (max-width: 850px) {
+      .login-screen { padding: 22px; }
+      .login-shell { min-height: calc(100vh - 44px); grid-template-columns: minmax(0,1fr) minmax(330px,.92fr); gap: 28px; }
+      .login-radar { right: -85px; width: 290px; opacity: .72; }
+      .login-mission-strip { gap: 11px; }
+      .login-mission-strip strong { font-size: 8px; }
+      .login-hero-copy h1 { font-size: clamp(33px,5vw,46px); }
+    }
+    @media (max-width: 680px) {
+      .login-screen { min-height: 100svh; align-items: start; padding: 0; overflow-y: auto; }
+      .login-screen::after { right: -310px; bottom: -240px; }
+      .login-shell { min-height: 100svh; grid-template-columns: 1fr; gap: 0; padding: 0 18px 24px; }
+      .login-hero { min-height: 275px; padding-top: 21px; }
+      .login-brand .brand-mark { width: 38px; height: 38px; }
+      .login-brand .brand-name { font-size: 11px; }
+      .login-brand .brand-caption { font-size: 7px; }
+      .login-hero-copy { max-width: 300px; padding: 27px 0 19px; }
+      .login-overline { font-size: 7px; letter-spacing: .1em; }
+      .login-hero-copy h1 { margin: 14px 0 8px; font-size: clamp(31px,8vw,40px); }
+      .login-hero-copy p { max-width: 270px; font-size: 10px; line-height: 1.55; }
+      .login-radar { top: 59%; right: -98px; width: 270px; opacity: .52; }
+      .login-mission-strip { width: 100%; gap: 9px; margin-top: auto; padding: 10px 0; }
+      .login-mission-strip strong { font-size: 7px; }
+      .mission-label { font-size: 6px; }
+      .login-mission-strip > i { height: 20px; }
+      .login-hero-foot { display: none; }
+      .login-card { z-index: 2; width: 100%; max-width: 460px; justify-self: center; align-self: start; padding: 22px 20px 18px; border-radius: 15px; }
+      .login-card h2 { margin-top: 17px; font-size: 21px; }
+      .login-form-intro { margin-bottom: 17px; font-size: 10px; }
+      .login-card .field { margin-top: 13px; }
+      .login-card .field input { min-height: 46px; }
+      .login-shift-panel { margin-top: 16px; }
+      .login-card .button.full { min-height: 47px; margin-top: 18px; }
+      .login-security { margin-top: 12px; padding-top: 11px; }
+      .login-form-foot { margin-top: 12px; }
+    }
+    @media (max-width: 360px) {
+      .login-shell { padding-right: 13px; padding-left: 13px; }
+      .login-hero { min-height: 252px; }
+      .login-mission-strip { gap: 6px; }
+      .login-mission-strip strong { font-size: 6px; }
+      .shift-schedule { gap: 4px; font-size: 6px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .login-overline i, .login-radar-sweep { animation: none !important; }
+    }
+    .app:not(.hidden) { position: relative; z-index: auto; inset: auto; min-height: 100vh; overflow: visible; background: transparent; }
+    .topbar { position: relative; z-index: 1; inset: auto; display: flex; min-height: 76px; grid-template-columns: none; padding: 12px clamp(16px, 4vw, 42px); border-bottom: 1px solid var(--line); background: rgba(7,18,29,.82); backdrop-filter: blur(12px); }
+    .topbar .brand { gap: 12px; }
+    .topbar .brand-mark { width: 39px; height: 39px; }
+    .topbar .brand-name { font-size: 14px; }
+    .topbar .brand-caption { display: block; }
+    .system-readouts { justify-self: auto; gap: clamp(9px, 2vw, 22px); padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
+    .operator { justify-self: auto; gap: 10px; padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
+    .layout { position: relative; inset: auto; display: grid; width: min(1700px, 100%); max-width: none; grid-template-columns: minmax(0,1fr) 340px; gap: 14px; margin: 0 auto; padding: 15px clamp(14px, 3vw, 34px) 34px; }
+    .main-column { position: static; inset: auto; }
+    .heading-row { position: static; align-items: flex-end; margin: 2px 0 10px; pointer-events: auto; }
+    .heading-row > div:first-child { display: block; }
+    .heading-row h1 { font: 650 21px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; text-transform: uppercase; }
+    .round-status { margin-left: 0; pointer-events: auto; }
+    .map-wrap { position: relative; inset: auto; width: 100%; height: min(74vh,790px); min-height: 450px; border: 1px solid rgba(69,207,216,.28); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,.34), 0 0 26px rgba(18,161,179,.07); }
+    #map { position: relative; inset: auto; width: 100%; height: 100%; }
+    .leaflet-control-zoom { margin: 10px !important; }
+    .leaflet-control-layers { margin: 10px !important; }
+    .map-chip { top: 14px; left: 14px; }
+    .next-point-overlay { bottom: 16px; left: 16px; width: min(290px,calc(100% - 32px)); padding: 13px 15px; }
+    .location-chip { right: 14px; bottom: 14px; max-width: min(45%,300px); }
+    .side-column { position: static; top: auto; right: auto; bottom: auto; display: grid; width: auto; grid-auto-rows: auto; gap: 13px; padding: 49px 0 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; opacity: 1; pointer-events: auto; transform: none; transition: none; }
+    .side-column .card { padding: 16px; border-color: var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(19,35,50,.96), rgba(13,27,40,.96)); box-shadow: none; }
+    .side-column .checkpoint-list { gap: 7px; }
+    .side-column .checkpoint { min-height: 43px; padding: 6px 8px; }
+    .map-wrap:not(.tracking):not(.inside) .next-point-overlay, .map-wrap:not(.tracking):not(.inside) .location-chip { display: none; }
+    .tactical-dock { right: auto; bottom: 17px; left: 50%; width: min(440px,calc(100% - 32px)); padding: 12px; border-radius: 15px; transform: translate(-50%,24px) scale(.97); }
+    .tactical-dock:not(.hidden) { transform: translate(-50%,0) scale(1); }
+    .entry-actions { grid-template-columns: 1.25fr 1fr; align-items: stretch; gap: 8px; margin-top: 8px; }
+    .entry-actions .button.primary { position: static; display: inline-flex; width: 100%; height: auto; min-height: 48px; flex-direction: row; justify-self: auto; padding: 0 16px; border: 1px solid transparent; border-radius: 11px; color: #06201f; background: linear-gradient(110deg, #4de1cb, #75d8e8); box-shadow: 0 7px 25px rgba(61,217,196,.14); }
+    .entry-actions .button.primary::before, .entry-actions .button.primary::after { content: none; }
+    .entry-actions .button.primary .reactor-icon { font-size: 19px; }
+    .reactor-label { font: inherit; letter-spacing: 0; }
+    .entry-actions #clear-button { width: 100%; min-height: 48px; font-size: 12px; letter-spacing: 0; text-transform: none; }
+    .map-wrap.inside .next-point-overlay { bottom: 154px; }
+    .sector-alert { top: 61px; }
+    @media (max-width: 900px) {
+      .topbar { min-height: 58px; padding: 8px 14px; }
+      .topbar .brand-mark { width: 33px; height: 33px; }
+      .topbar .brand-caption { display: none; }
+      .system-readouts { gap: 10px; }
+      .operator { gap: 7px; }
+      .layout { display: block; padding: 9px 10px 20px; }
+      .heading-row { position: absolute; z-index: 520; top: 70px; right: 20px; left: 20px; align-items: flex-start; margin: 0; pointer-events: none; }
+      .heading-row > div:first-child { display: none; }
+      .round-status { margin-left: auto; pointer-events: auto; }
+      .map-wrap { height: calc(100svh - 80px); min-height: 490px; border-radius: 16px; }
+      .side-column { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; padding-top: 12px; }
+      .side-column > .card { min-width: 0; }
+      .side-column > .sheet-note { grid-column: 1/-1; }
+      #start-card { position: fixed; z-index: 700; bottom: 16px; left: 50%; width: min(440px,calc(100vw - 28px)); border-color: rgba(61,217,196,.42); background: rgba(5,20,29,.92); box-shadow: 0 0 30px rgba(61,217,196,.11), 0 12px 40px rgba(0,0,0,.42); backdrop-filter: blur(18px); transform: translateX(-50%); }
+      .map-wrap:not(.tracking):not(.inside) .next-point-overlay, .map-wrap:not(.tracking):not(.inside) .location-chip { display: none; }
+    }
+    @media (max-width: 560px) {
+      .topbar { min-height: 56px; gap: 7px; padding: 7px 10px; }
+      .topbar .brand { gap: 7px; }
+      .topbar .brand-mark { width: 30px; height: 30px; font-size: 15px; }
+      .topbar .brand-name { font-size: 11px; letter-spacing: .05em; }
+      .system-readouts { gap: 8px; }
+      .readout { gap: 4px; font-size: 7px; letter-spacing: .03em; }
+      .readout b { font-size: 7px; }
+      .digital-clock { font-size: 10px; letter-spacing: .02em; }
+      .battery-icon { width: 15px; height: 8px; }
+      .operator { gap: 5px; font-size: 0; }
+      .operator-dot { width: 7px; height: 7px; }
+      #operator-label { display: none; }
+      #logout-button { min-height: 29px !important; padding: 0 7px !important; font-size: 9px; }
+      .layout { padding: 6px 6px 16px; }
+      .heading-row { top: 62px; right: 13px; left: 13px; }
+      .round-status { padding: 7px 9px; font-size: 8px; }
+      .map-wrap { height: calc(100svh - 68px); min-height: 460px; border-radius: 13px; }
+      .map-chip { top: 12px; left: 10px; max-width: 62%; min-height: 30px; padding: 7px 9px; font-size: 7px; letter-spacing: .05em; }
+      .leaflet-control-layers { margin: 5px !important; }
+      .leaflet-control-layers-expanded { padding: 7px !important; }
+      .leaflet-control-layers label { font-size: 9px; }
+      .next-point-overlay { bottom: 94px; left: 10px; width: min(230px,calc(100% - 20px)); gap: 3px; padding: 9px 11px; }
+      .next-distance { font-size: 20px; }
+      .next-point-overlay strong { font-size: 10px; }
+      .range-caption { font-size: 8px; }
+      .location-chip { right: 10px; bottom: 101px; max-width: calc(100% - 250px); padding: 7px 8px; font-size: 7px; text-align: right; }
+      .sector-alert { top: 103px; padding: 9px 12px; }
+      .sector-alert b { font-size: 8px; }
+      .sector-alert small { font-size: 9px; }
+      .tactical-dock { bottom: 9px; width: calc(100% - 18px); padding: 9px; border-radius: 13px; }
+      .entry-actions { gap: 7px; margin-top: 7px; }
+      .entry-actions .button { min-height: 44px; padding: 0 8px; font-size: 10px; }
+      .side-column { grid-template-columns: 1fr; }
+      .side-column > .card:not(.start-card):not(.hidden) { padding: 12px; }
+      .radar-sweep { width: min(75vw,300px); }
+    }
+    @media (max-width: 360px) {
+      .topbar .brand-name { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
+      .system-readouts { gap: 5px; }
+      .readout { font-size: 0; }
+      .readout b { font-size: 7px; }
+      .next-point-overlay { width: 195px; }
+      .location-chip { max-width: calc(100% - 210px); }
+    }
+  </style>
+</head>
+<body>
+  <section class="login-screen" id="login-screen">
+    <div class="login-shell">
+      <section class="login-hero" aria-label="Centro de control de rondas">
+        <div class="login-brand">
+          <div class="brand-mark" aria-hidden="true">⌖</div>
+          <div><div class="brand-name">RONDA SEGURA</div><div class="brand-caption">CENTRO DE CONTROL · OPERACIONES</div></div>
+        </div>
+        <div class="login-hero-copy">
+          <div class="login-overline"><i></i> SISTEMA DE PATRULLAJE GEOLOCALIZADO</div>
+          <h1>La seguridad<br>empieza <span>en cada punto.</span></h1>
+          <p>Identifícate para activar tu recorrido, el radar GPS y los siete puntos de control.</p>
+        </div>
+        <div class="login-radar" aria-hidden="true">
+          <div class="login-radar-grid"></div>
+          <div class="login-radar-sweep"></div>
+          <div class="login-radar-ring ring-one"></div>
+          <div class="login-radar-ring ring-two"></div>
+          <div class="login-radar-ring ring-three"></div>
+          <span class="login-radar-center">⌖</span>
+          <span class="login-radar-point point-one">01</span>
+          <span class="login-radar-point point-two">03</span>
+          <span class="login-radar-point point-three">07</span>
+          <span class="radar-coordinate coordinate-one">32°56'25"S</span>
+          <span class="radar-coordinate coordinate-two">068°45'39"W</span>
+        </div>
+        <div class="login-mission-strip">
+          <div><span class="mission-label">MISIÓN</span><strong>RONDA PERIMETRAL</strong></div>
+          <i></i>
+          <div><span class="mission-label">PUNTOS</span><strong>07 SECTORES</strong></div>
+          <i></i>
+          <div><span class="mission-label">MODO</span><strong>GPS ACTIVO</strong></div>
+        </div>
+        <div class="login-hero-foot"><span>PLATAFORMA DE VIGILANCIA</span><span>ACCESO DE PERSONAL AUTORIZADO</span></div>
+      </section>
+      <form class="login-card" id="login-form">
+        <div class="login-form-kicker"><span class="login-form-icon">↗</span><span>INICIO DE SESIÓN<br><b>IDENTIFICACIÓN DEL GUARDIA</b></span></div>
+        <h2>Acceso operativo</h2>
+        <p class="login-form-intro">Ingresa tus datos para habilitar el mapa de patrulla.</p>
+        <div class="field"><label for="guard-name">NOMBRE Y APELLIDO</label><input id="guard-name" name="guard" autocomplete="name" required placeholder="Ej.: Juan Pérez"></div>
+        <div class="field"><label for="guard-id">LEGAJO / IDENTIFICACIÓN</label><input id="guard-id" name="guardId" autocomplete="username" required placeholder="Ingresa tu número de legajo"></div>
+        <div class="login-shift-panel">
+          <span class="shift-signal"><i></i></span>
+          <span><small>TURNO ASIGNADO AUTOMÁTICAMENTE</small><strong id="login-shift" aria-live="polite"></strong></span>
+          <span class="shift-clock" id="login-clock">--:--</span>
+        </div>
+        <p class="shift-schedule">MAÑANA <b>06:00–12:59</b><span></span>TARDE-NOCHE <b>13:00–05:59</b></p>
+        <button class="button primary full" type="submit"><span>INICIAR SESIÓN</span><b aria-hidden="true">→</b></button>
+        <div class="login-security"><span>⌑</span><p>Al ingresar, activarás el seguimiento de ubicación para registrar los controles de la ronda.</p></div>
+        <div class="login-form-foot"><span>RONDA SEGURA v1.0</span><span>ESTACIÓN DE CONTROL</span></div>
+      </form>
+    </div>
+  </section>
+
+  <main class="app hidden" id="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">⌖</div><div><div class="brand-name">RONDA SEGURA</div><div class="brand-caption">Mapa de control · Sectores 1–7</div></div></div>
+      <div class="system-readouts" aria-label="Estado del sistema">
+        <span class="readout"><i class="readout-dot gps-dot" id="gps-indicator"></i><span>GPS <b id="gps-readout">EN ESPERA</b></span></span>
+        <span class="readout battery-readout"><span class="battery-icon"><i id="battery-level"></i></span><b id="battery-readout">--%</b></span>
+        <time class="digital-clock" id="system-clock">--:--:--</time>
+      </div>
+      <div class="operator"><span class="operator-dot"></span><span id="operator-label"></span><button class="button secondary" id="logout-button" type="button" style="min-height:34px;padding:0 10px">Salir</button></div>
+    </header>
+    <div class="layout">
+      <section class="main-column">
+        <div class="heading-row">
+          <div><div class="eyebrow">Recorrido GPS</div><h1>Mapa de la ronda</h1><p>Dirígete a cada punto. El registro se habilita al entrar en su radio.</p></div>
+          <div class="round-status" id="round-status"><i></i><span>Sin ronda activa</span></div>
+        </div>
+        <div class="map-wrap">
+          <div id="map" role="application" aria-label="Mapa de sectores y ubicación del guardia"></div>
+          <div class="radar-sweep" aria-hidden="true"></div>
+          <div class="map-chip"><span class="radar"></span><span id="radar-label">RADAR TÁCTICO · BUSCANDO ZONA</span></div>
+          <section class="next-point-overlay" id="next-point-overlay" aria-live="polite">
+            <span class="next-kicker" id="next-kicker">SIGUIENTE CONTROL</span>
+            <strong id="next-point-name">Esperando GPS</strong>
+            <span class="next-distance" id="next-point-distance">-- m</span>
+            <div class="range-track"><i id="range-progress"></i></div>
+            <span class="range-caption" id="range-caption">Activá la ronda para iniciar seguimiento</span>
+          </section>
+          <div class="sector-alert" id="sector-alert" aria-live="assertive">
+            <span class="alert-pulse"></span><span><b id="alert-title">SECTOR ASEGURADO</b><small id="alert-detail"></small></span>
+          </div>
+          <div class="tactical-dock hidden" id="tactical-dock">
+            <span class="dock-label">PUNTO DE CONTROL · ACCIÓN REQUERIDA</span>
+            <div id="sector-actions" class="entry-actions">
+              <button class="button primary" id="novelty-button" type="button">Registrar novedad</button>
+              <button class="button secondary" id="clear-button" type="button"><span aria-hidden="true">✓</span> Sin novedad</button>
+            </div>
+          </div>
+          <div class="location-chip" id="location-status">Esperando inicio de la ronda</div>
+        </div>
+      </section>
+      <aside class="side-column" id="side-panel" aria-label="Sectores y registros">
+        <section class="card start-card" id="start-card">
+          <h2 class="card-title">Iniciar recorrido</h2>
+          <p class="card-caption">PATRULLA LISTA · SECTOR 01</p>
+          <button class="button primary" id="start-button" type="button">INICIAR RONDA <span aria-hidden="true">→</span></button>
+        </section>
+        <section class="card hidden" id="active-card">
+          <h2 class="card-title">Estado del recorrido</h2>
+          <p class="card-caption" id="round-detail">Ubicación GPS activa.</p>
+          <div class="progress-track"><span id="progress-bar" style="width:0"></span></div>
+          <div class="progress-label"><span>Sectores registrados</span><strong id="progress-label">0 de 7</strong></div>
+          <div id="sector-notice" class="notice warning" style="margin-top:12px">Aún no estás dentro del radio de un sector pendiente.</div>
+          <button class="button danger full hidden" id="finish-button" type="button" style="margin-top:12px">Finalizar ronda en Guardia principal</button>
+        </section>
+        <section class="card">
+          <h2 class="card-title">Puntos de control</h2>
+          <p class="card-caption">Radio de detección definido para cada sector.</p>
+          <div class="checkpoint-list" id="checkpoint-list"></div>
+        </section>
+        <section class="card">
+          <h2 class="card-title">Registro de esta ronda</h2>
+          <p class="card-caption">Novedades y confirmaciones de los sectores visitados.</p>
+          <div class="events-list" id="events-list"><div class="card-caption">Todavía no hay registros en esta ronda.</div></div>
+          <div class="utility-row"><button class="button secondary" id="export-rounds" type="button">↓ Exportar rondas</button><button class="button secondary" id="export-scans" type="button">↓ Exportar escaneos</button></div>
+        </section>
+        <div class="card sheet-note"><span id="points-source">Conectando con la pestaña Punto_Control…</span> Los registros de rondas y escaneos se guardan en este dispositivo y se exportan como CSV con las columnas de la hoja.</div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="incident-backdrop" role="dialog" aria-modal="true" aria-labelledby="incident-title">
+    <form class="modal" id="incident-form">
+      <div class="modal-head"><div><span class="terminal-kicker">CANAL DE INCIDENCIA · ENCRIPTADO</span><h2 id="incident-title">Registrar novedad</h2><p id="incident-sector"></p></div><button class="modal-close" type="button" id="close-incident" aria-label="Cerrar">×</button></div>
+      <div class="field terminal-field"><label for="incident-notes">DESCRIPCIÓN DEL EVENTO</label><textarea id="incident-notes" required maxlength="2000" placeholder="> DETALLA LA NOVEDAD, UBICACIÓN Y CONDICIÓN..."></textarea></div>
+      <div class="field camera-field"><label for="incident-photo">CAPTURA FOTOGRÁFICA</label><div class="camera-viewfinder"><i class="frame-corner corner-tl"></i><i class="frame-corner corner-tr"></i><i class="frame-corner corner-bl"></i><i class="frame-corner corner-br"></i><span class="viewfinder-mark">OBJETIVO / FOTO REQUERIDA</span><input id="incident-photo" type="file" accept="image/*" capture="environment" required><img id="photo-preview" class="photo-preview hidden" alt="Vista previa de la fotografía"></div><span class="card-caption">Se solicitará acceso a la cámara del dispositivo.</span></div>
+      <div class="modal-foot"><button class="button secondary" type="button" id="cancel-incident">Cancelar</button><button class="button primary" type="submit">Guardar registro</button></div>
+    </form>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      let POINTS = [
+        { id: "PUNTO 01", name: "GUARDIA PRINCIPAL", qr: "Punto 1: Puesto 1 . CARGADO CON ÉXITO", lat: -32.940235, lng: -68.760792, radius: 50 },
+        { id: "PUNTO 02", name: "PLAYA SUR-OESTE", qr: "Punto 2. Playa sur-oeste. Cargado con éxito", lat: -32.940271, lng: -68.762040, radius: 50 },
+        { id: "PUNTO 03", name: "COMEDOR-SUM", qr: "Punto 3. Comedor y Sum. CARGADO CON ÉXITO", lat: -32.939764, lng: -68.761314, radius: 50 },
+        { id: "PUNTO 04", name: "BARRERA NOR.OESTE", qr: "Punto 4. Barrera Nor-oeste. Cargado con éxito", lat: -32.938542, lng: -68.761115, radius: 100 },
+        { id: "PUNTO 05", name: "RECEPCION Y EXPEDICION", qr: "Punto 5. Recepción y Expedición. CARGADO CON ÉXITO", lat: -32.939699, lng: -68.760647, radius: 50 },
+        { id: "PUNTO 06", name: "ADMINISTRACION", qr: "punto 6. Administración. CARGADO CON ÉXITO", lat: -32.939960, lng: -68.761111, radius: 50 },
+        { id: "PUNTO 07", name: "PLANTA LOGISTICA", qr: "Punto 7. Planta logística. CARGADO CON ÉXITO", lat: -32.939140, lng: -68.760172, radius: 50 }
+      ];
+      const KEYS = { rounds: "ronda-segura-rounds-v1", scans: "ronda-segura-scans-v1", operator: "ronda-segura-operator-v1" };
+      const $ = (selector) => document.querySelector(selector);
+      const pointsById = new Map(POINTS.map((point) => [point.id, point]));
+      let rounds = readStorage(KEYS.rounds, []);
+      let scans = readStorage(KEYS.scans, []);
+      let operator = readStorage(KEYS.operator, null);
+      let activeRound = rounds.find((round) => round.Estado === "En curso") || null;
+      let activePointId = null;
+      let currentPosition = null;
+      let watchId = null;
+      let map;
+      let pointsLoaded = false;
+      let guardMarker;
+      const pointLayers = new Map();
+      let toastTimer;
+      let voiceUnavailableNotified = false;
+
+      function getCurrentShift(date = new Date()) {
+        const minutes = date.getHours() * 60 + date.getMinutes();
+        return minutes >= 360 && minutes < 780 ? "Mañana" : "Tarde-noche";
+      }
+      function updateSystemClock() {
+        const time = new Intl.DateTimeFormat("es-AR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hourCycle: "h23"
+        }).format(new Date());
+        $("#system-clock").textContent = time;
+        $("#login-clock").textContent = time.slice(0, 5);
+      }
+      async function initializeBatteryReadout() {
+        if (!navigator.getBattery) return;
+        try {
+          const battery = await navigator.getBattery();
+          const update = () => {
+            const level = Math.round(battery.level * 100);
+            $("#battery-readout").textContent = `${level}%`;
+            $("#battery-level").style.width = `${level}%`;
+            $("#battery-level").style.background = level <= 15 ? "var(--red)" : level <= 30 ? "var(--amber)" : "var(--green)";
+          };
+          update();
+          battery.addEventListener("levelchange", update);
+          battery.addEventListener("chargingchange", update);
+        } catch (error) {
+          console.warn("El nivel de batería no está disponible en este dispositivo:", error);
+        }
+      }
+      function updateAutomaticShift() {
+        const shift = getCurrentShift();
+        $("#login-shift").textContent = shift;
+        if (!operator || operator.shift === shift) return;
+        operator.shift = shift;
+        if ($("#app") && !$("#app").classList.contains("hidden")) {
+          $("#operator-label").textContent = `${operator.name} · ${operator.shift}`;
+        }
+        try {
+          localStorage.setItem(KEYS.operator, JSON.stringify(operator));
+        } catch (error) {
+          console.error("No se pudo guardar el turno automático del guardia:", error);
+          showToast("El turno cambió, pero no se pudo actualizar la sesión guardada en este navegador.");
+        }
+      }
+      function readStorage(key, fallback) {
+        try {
+          const value = localStorage.getItem(key);
+          return value ? JSON.parse(value) : fallback;
+        } catch (error) {
+          console.error(`No se pudieron leer los datos locales (${key}):`, error);
+          return fallback;
+        }
+      }
+      function saveData() {
+        try {
+          localStorage.setItem(KEYS.rounds, JSON.stringify(rounds));
+          localStorage.setItem(KEYS.scans, JSON.stringify(scans));
+          return true;
+        } catch (error) {
+          console.error("No se pudieron guardar los registros de ronda:", error);
+          showToast("No se pudo guardar. El almacenamiento puede estar lleno; exporta los datos e inténtalo de nuevo.");
+          return false;
+        }
+      }
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+      }
+      function makeId(prefix) {
+        return `${prefix}-${window.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+      }
+      function showToast(message) {
+        const toast = $("#toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 4300);
+      }
+      function distanceMeters(a, b) {
+        const radians = (degrees) => degrees * Math.PI / 180;
+        const lat1 = radians(a.lat);
+        const lat2 = radians(b.lat);
+        const deltaLat = radians(b.lat - a.lat);
+        const deltaLng = radians(b.lng - a.lng);
+        const h = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+        return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      }
+      function currentRoundScans() {
+        return activeRound ? scans.filter((scan) => scan.ID_Ronda === activeRound.ID_Ronda) : [];
+      }
+      function hasScan(pointId) {
+        return currentRoundScans().some((scan) => scan.ID_Punto === pointId);
+      }
+      function localDate(value) {
+        return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+      }
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let field = "";
+        let quoted = false;
+        for (let index = 0; index < text.length; index += 1) {
+          const char = text[index];
+          if (char === '"' && quoted && text[index + 1] === '"') {
+            field += '"';
+            index += 1;
+          } else if (char === '"') {
+            quoted = !quoted;
+          } else if (char === "," && !quoted) {
+            row.push(field);
+            field = "";
+          } else if ((char === "\n" || char === "\r") && !quoted) {
+            if (char === "\r" && text[index + 1] === "\n") index += 1;
+            row.push(field);
+            if (row.some((value) => value.trim())) rows.push(row);
+            row = [];
+            field = "";
+          } else {
+            field += char;
+          }
+        }
+        if (field || row.length) {
+          row.push(field);
+          if (row.some((value) => value.trim())) rows.push(row);
+        }
+        return rows;
+      }
+      async function loadPoints() {
+        if (pointsLoaded) return;
+        const csvUrl = "https://docs.google.com/spreadsheets/d/1t6Gy69eyiYydAhnzueZrd2B9ZcDAQMkZoyJ8o7ravO8/export?format=csv&gid=0";
+        try {
+          const response = await fetch(csvUrl, { cache: "no-store" });
+          if (!response.ok) throw new Error(`La hoja respondió con estado ${response.status}.`);
+          const rows = parseCsv(await response.text());
+          if (rows.length < 2) throw new Error("La pestaña Punto_Control no contiene puntos.");
+          const headers = rows[0].map((header) => header.replace(/^\uFEFF/, "").trim());
+          const column = (name) => headers.indexOf(name);
+          const required = ["ID_Punto", "Nombre_Punto", "QR_Code", "Ubicacion_GPS", "Radio_Metros"];
+          if (required.some((name) => column(name) < 0)) throw new Error("Faltan columnas requeridas en Punto_Control.");
+          const loaded = rows.slice(1).map((values) => {
+            const value = (name) => (values[column(name)] || "").trim();
+            const coords = value("Ubicacion_GPS").match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+            const radius = Number(value("Radio_Metros"));
+            if (!value("ID_Punto") || !value("Nombre_Punto") || !coords || !Number.isFinite(radius) || radius <= 0) {
+              throw new Error("Hay un punto con nombre, coordenadas GPS o radio inválidos.");
+            }
+            return {
+              id: value("ID_Punto"),
+              name: value("Nombre_Punto"),
+              qr: value("QR_Code"),
+              lat: Number(coords[1]),
+              lng: Number(coords[2]),
+              radius
+            };
+          });
+          if (loaded.length !== 7 || loaded[0].id !== "PUNTO 01") throw new Error("Se esperaban siete puntos y el primero debe ser PUNTO 01.");
+          loaded[0].name = "GUARDIA PRINCIPAL";
+          POINTS = loaded;
+          pointsById.clear();
+          POINTS.forEach((point) => pointsById.set(point.id, point));
+          $("#points-source").textContent = "Puntos y radios actualizados en vivo desde la hoja compartida.";
+        } catch (error) {
+          console.error("No se pudieron actualizar los puntos desde Google Sheets:", error);
+          $("#points-source").textContent = "No se pudo actualizar Punto_Control; se usan los siete puntos guardados en la app.";
+          showToast("No se pudieron actualizar los puntos desde la hoja; se usarán los datos disponibles en la app.");
+        }
+        pointsLoaded = true;
+      }
+      function initMap() {
+        map = L.map("map", { zoomControl: true }).setView([-32.93955, -68.7611], 17);
+        const darkLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 20,
+          className: "tactical-dark-tiles",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+        });
+        const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 20,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+        });
+        const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri"
+        });
+        const terrainLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          maxZoom: 17,
+          attribution: '&copy; <a href="https://opentopomap.org" target="_blank" rel="noreferrer">OpenTopoMap</a> · SRTM · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+        }).addTo(map);
+        L.control.layers({
+          "Nocturno táctico": darkLayer,
+          "Satélite": satelliteLayer,
+          "Relieve": terrainLayer,
+          "Calles": streetLayer
+        }, null, { position: "topright", collapsed: true }).addTo(map);
+        POINTS.forEach((point, index) => {
+          const ring = L.circle([point.lat, point.lng], { radius: point.radius, color: "#3dd9c4", weight: 1, opacity: .68, fillColor: "#3dd9c4", fillOpacity: .08 });
+          ring.addTo(map);
+          const marker = L.marker([point.lat, point.lng], {
+            icon: L.divIcon({ className: "", html: `<span class="point-marker" id="marker-${index + 1}">${index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
+          }).bindTooltip(`Sector ${index + 1} · ${escapeHtml(point.name)} · ${point.radius} m`).addTo(map);
+          pointLayers.set(point.id, { ring, marker });
+        });
+        renderCheckpoints();
+        renderRound();
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+      function renderCheckpoints() {
+        $("#checkpoint-list").innerHTML = POINTS.map((point, index) => {
+          const distance = currentPosition ? Math.round(distanceMeters(currentPosition, point)) : null;
+          const visited = hasScan(point.id);
+          const current = activePointId === point.id;
+          return `<div class="checkpoint ${visited ? "visited" : ""} ${current ? "current" : ""}"><span class="checkpoint-number">${index + 1}</span><span class="checkpoint-name">${escapeHtml(point.name)}</span><span class="checkpoint-distance">${visited ? "Registrado" : distance === null ? `${point.radius} m` : `${distance} m`}</span></div>`;
+        }).join("");
+        POINTS.forEach((point, index) => {
+          const element = document.getElementById(`marker-${index + 1}`);
+          if (!element) return;
+          element.classList.toggle("done", hasScan(point.id));
+          element.classList.toggle("active", activePointId === point.id);
+        });
+        renderNextPoint();
+      }
+      function renderNextPoint() {
+        if (!currentPosition) {
+          $("#next-point-name").textContent = activeRound ? "Buscando señal GPS…" : "GUARDIA PRINCIPAL";
+          $("#next-point-distance").textContent = "-- m";
+          $("#next-kicker").textContent = activeRound ? "ADQUIRIENDO COORDENADAS" : "PUNTO DE INICIO";
+          $("#range-progress").style.width = "0%";
+          $("#range-caption").textContent = activeRound ? "Esperando una posición precisa" : "Inicia la ronda en el Sector 1";
+          return;
+        }
+        const pending = POINTS.filter((point) => !hasScan(point.id))
+          .map((point) => ({ point, distance: distanceMeters(currentPosition, point) }))
+          .sort((a, b) => a.distance - b.distance);
+        const selected = activePointId && !hasScan(activePointId)
+          ? { point: pointsById.get(activePointId), distance: distanceMeters(currentPosition, pointsById.get(activePointId)) }
+          : pending[0];
+        if (!selected) {
+          $("#next-point-name").textContent = "RECORRIDO COMPLETADO";
+          $("#next-point-distance").textContent = "7 / 7";
+          $("#next-kicker").textContent = "TODOS LOS CONTROLES";
+          $("#range-progress").style.width = "100%";
+          $("#range-caption").textContent = "Regresa a Guardia principal para finalizar";
+          return;
+        }
+        const pointIndex = POINTS.indexOf(selected.point);
+        const remaining = Math.max(0, Math.round(selected.distance - selected.point.radius));
+        const inRadius = selected.distance <= selected.point.radius;
+        $("#next-kicker").textContent = inRadius ? "GEOFENCE ACTIVO · SECTOR ASEGURADO" : `SIGUIENTE CONTROL · SECTOR ${pointIndex + 1}`;
+        $("#next-point-name").textContent = selected.point.name;
+        $("#next-point-distance").textContent = inRadius ? "DENTRO DEL RADIO" : `${remaining} m`;
+        $("#range-progress").style.width = `${Math.min(100, Math.max(0, Math.round((1 - remaining / 500) * 100)))}%`;
+        $("#range-caption").textContent = inRadius
+          ? `Radio confirmado · ${selected.point.radius} m · registro habilitado`
+          : `A ${Math.round(selected.distance)} m del punto · radio ${selected.point.radius} m`;
+      }
+      function renderRound() {
+        const status = $("#round-status");
+        const inProgress = Boolean(activeRound);
+        status.classList.toggle("live", inProgress);
+        status.querySelector("span").textContent = inProgress ? "Ronda en curso" : "Sin ronda activa";
+        $(".map-wrap").classList.toggle("tracking", inProgress && !activePointId);
+        $(".map-wrap").classList.toggle("inside", inProgress && Boolean(activePointId));
+        $(".map-wrap").classList.toggle("pending", inProgress && Boolean(activePointId) && !hasScan(activePointId));
+        $("#tactical-dock").classList.toggle("hidden", !(inProgress && activePointId && !hasScan(activePointId)));
+        $("#sector-actions").classList.toggle("hidden", !(inProgress && activePointId && !hasScan(activePointId)));
+        $("#radar-label").textContent = activePointId ? "RADAR TÁCTICO · GEOFENCE ACTIVO" : inProgress ? "RADAR TÁCTICO · BUSCANDO ZONA" : "RADAR TÁCTICO · EN ESPERA";
+        $("#start-card").classList.toggle("hidden", inProgress);
+        $("#active-card").classList.toggle("hidden", !inProgress);
+        if (!inProgress) {
+          $("#finish-button").classList.add("hidden");
+          $("#sector-actions").classList.add("hidden");
+          $("#sector-notice").textContent = "Aún no estás dentro del radio de un sector pendiente.";
+          $("#sector-notice").className = "notice warning";
+          $("#events-list").innerHTML = '<div class="card-caption">Todavía no hay registros en esta ronda.</div>';
+          renderNextPoint();
+          renderCheckpoints();
+          return;
+        }
+        $("#round-detail").textContent = `Inicio: ${localDate(activeRound.Fecha_Hora_Inicio)} · Turno ${activeRound.TURNO}`;
+        const count = currentRoundScans().length;
+        $("#progress-bar").style.width = `${Math.round(count / POINTS.length * 100)}%`;
+        $("#progress-label").textContent = `${count} de ${POINTS.length}`;
+        const scansForRound = currentRoundScans().slice().reverse();
+        $("#events-list").innerHTML = scansForRound.length ? scansForRound.map((scan) => {
+          const point = pointsById.get(scan.ID_Punto);
+          return `<div class="event-row"><strong>${escapeHtml(point?.name || scan.ID_Punto)} · ${escapeHtml(scan.Observaciones)}</strong><span>${localDate(scan.Hora_Marca)}${scan.FOTO ? " · Foto adjunta" : ""}</span></div>`;
+        }).join("") : '<div class="card-caption">Todavía no hay registros en esta ronda.</div>';
+        const complete = count === POINTS.length;
+        $("#finish-button").classList.toggle("hidden", !(complete && activePointId === POINTS[0].id));
+        renderCheckpoints();
+      }
+      function showSectorEntry(point) {
+        activePointId = point.id;
+        $("#sector-notice").className = hasScan(point.id) ? "notice" : "notice";
+        $("#sector-notice").textContent = hasScan(point.id)
+          ? `Ya registraste el Sector ${POINTS.indexOf(point) + 1} · ${point.name}.`
+          : `Has ingresado al radio de ${point.name} (Sector ${POINTS.indexOf(point) + 1}).`;
+        $("#alert-title").textContent = hasScan(point.id) ? "SECTOR REGISTRADO" : "GEOFENCE DETECTADO";
+        $("#alert-detail").textContent = `SECTOR ${POINTS.indexOf(point) + 1} · ${point.name}`;
+        renderRound();
+      }
+      function announceSectorEntry(point) {
+        const speech = window.speechSynthesis;
+        if (!speech || typeof window.SpeechSynthesisUtterance !== "function") {
+          if (!voiceUnavailableNotified) {
+            showToast("Este navegador no admite avisos por voz; el aviso del sector aparecerá en pantalla.");
+            voiceUnavailableNotified = true;
+          }
+          return;
+        }
+        const sectorNumber = POINTS.indexOf(point) + 1;
+        const utterance = new SpeechSynthesisUtterance(`Atención. Has ingresado al radio del sector ${sectorNumber}: ${point.name}.`);
+        utterance.lang = "es-AR";
+        utterance.rate = 0.95;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        const spanishVoice = speech.getVoices().find((voice) => voice.lang.toLowerCase() === "es-ar")
+          || speech.getVoices().find((voice) => voice.lang.toLowerCase().startsWith("es"));
+        if (spanishVoice) utterance.voice = spanishVoice;
+        utterance.onerror = (event) => {
+          if (event.error === "canceled" || event.error === "interrupted") return;
+          console.warn("No se pudo reproducir el aviso de voz del sector:", event.error);
+          if (!voiceUnavailableNotified) {
+            showToast("No se pudo reproducir el aviso por voz. Revisa el audio del dispositivo.");
+            voiceUnavailableNotified = true;
+          }
+        };
+        try {
+          speech.cancel();
+          speech.speak(utterance);
+        } catch (error) {
+          console.error("No se pudo iniciar el aviso de voz del sector:", error);
+          if (!voiceUnavailableNotified) {
+            showToast("No se pudo reproducir el aviso por voz. Revisa el audio del dispositivo.");
+            voiceUnavailableNotified = true;
+          }
+        }
+      }
+      function updatePosition(position) {
+        currentPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+        const accuracy = Math.round(position.coords.accuracy);
+        $("#location-status").textContent = `GPS activo · precisión ±${accuracy} m`;
+        $("#gps-readout").textContent = accuracy <= 30 ? `FIJO ±${accuracy}M` : `±${accuracy}M`;
+        $("#gps-indicator").classList.toggle("locked", accuracy <= 30);
+        $("#gps-indicator").classList.toggle("live", accuracy > 30);
+        if (!guardMarker) {
+          guardMarker = L.marker([currentPosition.lat, currentPosition.lng], {
+            icon: L.divIcon({ className: "", html: '<span class="guard-marker"></span>', iconSize: [18, 18], iconAnchor: [9, 9] })
+          }).addTo(map).bindTooltip("Tu ubicación");
+          map.setView([currentPosition.lat, currentPosition.lng], 18);
+        } else {
+          const guardLocation = L.latLng(currentPosition.lat, currentPosition.lng);
+          guardMarker.setLatLng(guardLocation);
+          if (!map.getBounds().pad(-0.18).contains(guardLocation)) {
+            map.panTo(guardLocation, { animate: true, duration: .45 });
+          }
+        }
+        if (activeRound) detectSector();
+        renderCheckpoints();
+      }
+      function detectSector() {
+        const inside = POINTS.map((point) => ({ point, distance: distanceMeters(currentPosition, point) }))
+          .filter((item) => item.distance <= item.point.radius)
+          .sort((a, b) => a.distance - b.distance);
+        const next = inside.find((item) => !hasScan(item.point.id));
+        if (next) {
+          if (activePointId !== next.point.id) {
+            announceSectorEntry(next.point);
+            showSectorEntry(next.point);
+            showToast(`Has ingresado al radio de ${next.point.name}.`);
+          } else {
+            showSectorEntry(next.point);
+          }
+          return;
+        }
+        if (inside.length) {
+          if (activePointId !== inside[0].point.id) announceSectorEntry(inside[0].point);
+          showSectorEntry(inside[0].point);
+          return;
+        }
+        activePointId = null;
+        $(".map-wrap").classList.remove("inside");
+        $("#sector-notice").className = "notice warning";
+        $("#sector-notice").textContent = "Fuera de los radios de control. Sigue el mapa hasta el siguiente sector.";
+        $("#tactical-dock").classList.add("hidden");
+        $("#finish-button").classList.add("hidden");
+        renderRound();
+      }
+      function getCurrentPosition() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Este navegador no admite geolocalización."));
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        });
+      }
+      function locationError(error) {
+        const messages = {
+          1: "Permiso de ubicación denegado. Habilita la ubicación para esta página en los ajustes del navegador.",
+          2: "No se pudo determinar tu ubicación. Comprueba el GPS y vuelve a intentarlo.",
+          3: "La ubicación tardó demasiado. Inténtalo nuevamente en un lugar con mejor señal."
+        };
+        return messages[error.code] || error.message || "No se pudo obtener la ubicación.";
+      }
+      async function startRound() {
+        const button = $("#start-button");
+        button.disabled = true;
+        button.textContent = "Obteniendo ubicación…";
+        $("#gps-readout").textContent = "BUSCANDO";
+        $("#gps-indicator").className = "readout-dot gps-dot live";
+        try {
+          updateAutomaticShift();
+          const position = await getCurrentPosition();
+          const location = { lat: position.coords.latitude, lng: position.coords.longitude };
+          const startPoint = POINTS[0];
+          const distance = distanceMeters(location, startPoint);
+          if (distance > startPoint.radius) {
+            throw new Error(`Para comenzar, debes estar en Guardia principal (Sector 1). Estás a ${Math.round(distance)} m; el radio permitido es ${startPoint.radius} m.`);
+          }
+          const round = {
+            ID_Ronda: makeId("RONDA"),
+            Fecha_Hora_Inicio: new Date(position.timestamp || Date.now()).toISOString(),
+            Usuario: `${operator.name} (${operator.id})`,
+            TURNO: operator.shift,
+            Estado: "En curso"
+          };
+          rounds.push(round);
+          activeRound = round;
+          if (!saveData()) {
+            rounds = rounds.filter((item) => item.ID_Ronda !== round.ID_Ronda);
+            activeRound = null;
+            return;
+          }
+          updatePosition(position);
+          watchId = navigator.geolocation.watchPosition(updatePosition, (error) => {
+            $("#location-status").textContent = locationError(error);
+            $("#gps-readout").textContent = "SIN SEÑAL";
+            $("#gps-indicator").className = "readout-dot gps-dot lost";
+            $("#sector-notice").className = "notice error";
+            $("#sector-notice").textContent = `Se perdió la ubicación GPS: ${locationError(error)}`;
+          }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+          $("#location-status").textContent = `GPS activo · precisión ±${Math.round(position.coords.accuracy)} m`;
+          renderRound();
+          showToast("Ronda iniciada. Sigue el radar hasta el Sector 1 para registrar la entrada.");
+        } catch (error) {
+          console.error("No se pudo iniciar la ronda:", error);
+          $("#gps-readout").textContent = "SIN SEÑAL";
+          $("#gps-indicator").className = "readout-dot gps-dot lost";
+          showToast(error.message || locationError(error));
+        } finally {
+          button.disabled = false;
+          button.innerHTML = "◎ &nbsp; Comenzar ronda";
+        }
+      }
+      function commitScan(point, observations, photo = "") {
+        const scan = {
+          ID_Escaneo: makeId("ESCANEO"),
+          ID_Ronda: activeRound.ID_Ronda,
+          ID_Punto: point.id,
+          Ubicacion_Real: `${currentPosition.lat.toFixed(6)}, ${currentPosition.lng.toFixed(6)}`,
+          Hora_Marca: new Date().toISOString(),
+          Observaciones: observations,
+          FOTO: photo
+        };
+        scans.push(scan);
+        if (!saveData()) {
+          scans = scans.filter((item) => item.ID_Escaneo !== scan.ID_Escaneo);
+          return false;
+        }
+        activePointId = point.id;
+        $("#sector-actions").classList.add("hidden");
+        renderRound();
+        if (currentPosition && distanceMeters(currentPosition, POINTS[0]) <= POINTS[0].radius && currentRoundScans().length === POINTS.length) {
+          $("#finish-button").classList.remove("hidden");
+        }
+        showToast(`Registro guardado: ${point.name}.`);
+        return true;
+      }
+      function openIncident() {
+        if (!activeRound || !activePointId || hasScan(activePointId)) return;
+        const point = pointsById.get(activePointId);
+        $("#incident-sector").textContent = `Sector ${POINTS.indexOf(point) + 1} · ${point.name}`;
+        $("#incident-form").reset();
+        $("#photo-preview").src = "";
+        $("#photo-preview").classList.add("hidden");
+        $("#incident-backdrop").classList.add("open");
+        $("#incident-notes").focus();
+      }
+      function closeIncident() {
+        $("#incident-backdrop").classList.remove("open");
+      }
+      function finishRound() {
+        if (!activeRound || currentRoundScans().length !== POINTS.length) return;
+        if (!currentPosition || distanceMeters(currentPosition, POINTS[0]) > POINTS[0].radius) {
+          showToast("Debes regresar al radio de Guardia principal para terminar la ronda.");
+          return;
+        }
+        if (!window.confirm("¿Finalizar esta ronda?")) return;
+        const previous = activeRound.Estado;
+        activeRound.Estado = "Finalizada";
+        if (!saveData()) {
+          activeRound.Estado = previous;
+          return;
+        }
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        showToast("Ronda finalizada y guardada en este dispositivo.");
+        activeRound = null;
+        activePointId = null;
+        $("#location-status").textContent = "Ronda finalizada";
+        renderRound();
+      }
+      function exportCsv(kind) {
+        const roundsExport = kind === "rounds";
+        const headers = roundsExport
+          ? ["ID_Ronda", "Fecha_Hora_Inicio", "Usuario", "TURNO", "Estado"]
+          : ["ID_Escaneo", "ID_Ronda", "ID_Punto", "Ubicacion_Real", "Hora_Marca", "Observaciones", "FOTO"];
+        const rows = (roundsExport ? rounds : scans).map((row) => headers.map((header) => {
+          const value = row[header] ?? "";
+          return `"${String(value).replace(/"/g, '""')}"`;
+        }).join(";"));
+        const csv = "\uFEFF" + [headers.map((header) => `"${header}"`).join(";"), ...rows].join("\r\n");
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${roundsExport ? "Rondas_Maestro" : "Registro_Escaneo"}-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      function login(data) {
+        operator = { name: data.get("guard").trim(), id: data.get("guardId").trim(), shift: getCurrentShift() };
+        try {
+          localStorage.setItem(KEYS.operator, JSON.stringify(operator));
+        } catch (error) {
+          console.error("No se pudo guardar la identificación del guardia:", error);
+          showToast("No se pudo guardar la sesión en este navegador.");
+          return;
+        }
+        showApp();
+      }
+      async function showApp() {
+        updateAutomaticShift();
+        $("#operator-label").textContent = `${operator.name} · ${operator.shift}`;
+        $("#login-screen").classList.add("hidden");
+        $("#app").classList.remove("hidden");
+        await loadPoints();
+        if (!map) initMap();
+        else setTimeout(() => map.invalidateSize(), 100);
+        if (activeRound) {
+          $("#location-status").textContent = "Recuperando ubicación de la ronda…";
+          $("#gps-readout").textContent = "BUSCANDO";
+          $("#gps-indicator").className = "readout-dot gps-dot live";
+          navigator.geolocation?.getCurrentPosition(updatePosition, (error) => {
+            $("#location-status").textContent = locationError(error);
+            $("#gps-readout").textContent = "SIN SEÑAL";
+            $("#gps-indicator").className = "readout-dot gps-dot lost";
+            $("#sector-notice").className = "notice error";
+            $("#sector-notice").textContent = `No se pudo recuperar la ubicación: ${locationError(error)}`;
+          }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          if (navigator.geolocation && watchId === null) {
+            watchId = navigator.geolocation.watchPosition(updatePosition, (error) => {
+              $("#location-status").textContent = locationError(error);
+              $("#gps-readout").textContent = "SIN SEÑAL";
+              $("#gps-indicator").className = "readout-dot gps-dot lost";
+            }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+          }
+        }
+        renderRound();
+      }
+      function logout() {
+        if (activeRound && !window.confirm("Hay una ronda en curso. ¿Cerrar la sesión y dejarla pendiente en este dispositivo?")) return;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        try {
+          localStorage.removeItem(KEYS.operator);
+        } catch (error) {
+          console.error("No se pudo cerrar la sesión local:", error);
+        }
+        operator = null;
+        $("#app").classList.add("hidden");
+        $("#login-screen").classList.remove("hidden");
+        $("#login-form").reset();
+      }
+      $("#login-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!event.currentTarget.reportValidity()) return;
+        login(new FormData(event.currentTarget));
+      });
+      $("#start-button").addEventListener("click", startRound);
+      $("#novelty-button").addEventListener("click", openIncident);
+      $("#clear-button").addEventListener("click", () => {
+        if (!activeRound || !activePointId) return;
+        const point = pointsById.get(activePointId);
+        commitScan(point, "SIN NOVEDAD");
+      });
+      $("#finish-button").addEventListener("click", finishRound);
+      $("#logout-button").addEventListener("click", logout);
+      $("#export-rounds").addEventListener("click", () => exportCsv("rounds"));
+      $("#export-scans").addEventListener("click", () => exportCsv("scans"));
+      $("#close-incident").addEventListener("click", closeIncident);
+      $("#cancel-incident").addEventListener("click", closeIncident);
+      $("#incident-photo").addEventListener("change", (event) => {
+        const file = event.currentTarget.files[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+          event.currentTarget.value = "";
+          showToast("Selecciona un archivo de imagen para adjuntar.");
+          return;
+        }
+        const preview = $("#photo-preview");
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove("hidden");
+      });
+      $("#incident-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const notes = $("#incident-notes").value.trim();
+        const file = $("#incident-photo").files[0];
+        if (!notes || !file || !activePointId || !currentPosition) {
+          showToast("Completa la descripción, adjunta una foto y confirma tu ubicación GPS.");
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          showToast("La foto supera 5 MB. Elige una imagen más pequeña para guardarla en el dispositivo.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => showToast("No se pudo leer la fotografía. Inténtalo nuevamente.");
+        reader.onload = () => {
+          const point = pointsById.get(activePointId);
+          if (commitScan(point, notes, String(reader.result))) closeIncident();
+        };
+        reader.readAsDataURL(file);
+      });
+      $("#incident-backdrop").addEventListener("click", (event) => {
+        if (event.target === $("#incident-backdrop")) closeIncident();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeIncident();
+        }
+      });
+      updateAutomaticShift();
+      setInterval(updateAutomaticShift, 60000);
+      updateSystemClock();
+      setInterval(updateSystemClock, 1000);
+      initializeBatteryReadout();
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) updateAutomaticShift();
+      });
+      if (operator && typeof operator.name === "string") showApp();
+    })();
+  </script>
+</body>
+</html>

@@ -125,7 +125,9 @@
     .point-marker { display: grid; width: 28px; height: 28px; place-items: center; border: 2px solid #aaf8ed; border-radius: 50%; color: #06201f; background: var(--cyan); box-shadow: 0 0 0 5px rgba(61,217,196,.18), 0 3px 12px rgba(0,0,0,.4); font-size: 10px; font-weight: 800; }
     .point-marker.done { border-color: #c4ffe3; background: var(--green); }
     .point-marker.active { border-color: #fff0c9; color: #33220b; background: var(--amber); box-shadow: 0 0 0 8px rgba(255,198,110,.2), 0 0 22px rgba(255,198,110,.5); }
-    .guard-marker { width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; background: #448bff; box-shadow: 0 0 0 8px rgba(68,139,255,.18), 0 0 20px rgba(68,139,255,.8); }
+    .guard-stickman { display: grid; width: 22px; height: 28px; place-items: center; border: 1px solid #080d11; border-radius: 50%; background: rgba(242,248,247,.94); box-shadow: 0 0 0 2px rgba(0,0,0,.48); }
+    .guard-stickman svg { display: block; width: 17px; height: 23px; }
+    .gps-accuracy-circle { stroke-dasharray: 5 5; }
     .topbar { position: relative; z-index: 600; min-height: 66px; border-color: rgba(68,217,222,.12); background: rgba(4,11,19,.88); backdrop-filter: blur(16px); }
     .system-readouts { display: flex; align-items: center; gap: clamp(9px, 2vw, 22px); margin-left: auto; }
     .readout { display: inline-flex; align-items: center; gap: 7px; color: #82a1b3; font: 700 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .09em; white-space: nowrap; }
@@ -134,6 +136,7 @@
     .readout-dot.live { background: var(--cyan); box-shadow: 0 0 9px rgba(61,217,196,.8); animation: signal-pulse 1.8s infinite; }
     .readout-dot.locked { background: var(--green); box-shadow: 0 0 10px rgba(100,223,169,.85); }
     .readout-dot.lost { background: var(--red); box-shadow: 0 0 9px rgba(255,125,131,.7); }
+    .readout-dot.uncertain { background: var(--amber); box-shadow: 0 0 9px rgba(255,198,110,.7); }
     .digital-clock { color: #a9c5d2; font: 700 13px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
     .battery-icon { position: relative; width: 19px; height: 10px; padding: 1px; border: 1px solid #819aa7; border-radius: 2px; }
     .battery-icon::after { position: absolute; top: 2px; right: -3px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: #819aa7; content: ""; }
@@ -669,7 +672,7 @@
         <div class="login-hero-copy">
           <div class="login-overline"><i></i> SISTEMA DE PATRULLAJE GEOLOCALIZADO</div>
           <h1>La seguridad<br>empieza <span>en cada punto.</span></h1>
-          <p>Identifícate para activar tu recorrido, el radar GPS y los siete puntos de control.</p>
+          <p>Identifícate para activar tu recorrido, el radar GPS y los puntos de control.</p>
         </div>
         <div class="login-radar" aria-hidden="true">
           <div class="login-radar-grid"></div>
@@ -681,13 +684,13 @@
           <span class="login-radar-point point-one">01</span>
           <span class="login-radar-point point-two">03</span>
           <span class="login-radar-point point-three">07</span>
-          <span class="radar-coordinate coordinate-one">32°56'25"S</span>
-          <span class="radar-coordinate coordinate-two">068°45'39"W</span>
+          <span class="radar-coordinate coordinate-one" id="login-latitude">LAT --</span>
+          <span class="radar-coordinate coordinate-two" id="login-longitude">LON --</span>
         </div>
         <div class="login-mission-strip">
           <div><span class="mission-label">MISIÓN</span><strong>RONDA PERIMETRAL</strong></div>
           <i></i>
-          <div><span class="mission-label">PUNTOS</span><strong>07 SECTORES</strong></div>
+          <div><span class="mission-label">PUNTOS</span><strong id="login-point-count">LEYENDO HOJA</strong></div>
           <i></i>
           <div><span class="mission-label">MODO</span><strong>GPS ACTIVO</strong></div>
         </div>
@@ -714,7 +717,7 @@
 
   <main class="app hidden" id="app">
     <header class="topbar">
-      <div class="brand"><div class="brand-mark" aria-hidden="true">⌖</div><div><div class="brand-name">RONDA SEGURA</div><div class="brand-caption">Mapa de control · Sectores 1–7</div></div></div>
+      <div class="brand"><div class="brand-mark" aria-hidden="true">⌖</div><div><div class="brand-name">RONDA SEGURA</div><div class="brand-caption" id="map-point-count">PUNTOS DE CONTROL · SOLO LECTURA</div></div></div>
       <div class="system-readouts" aria-label="Estado del sistema">
         <span class="readout"><i class="readout-dot gps-dot" id="gps-indicator"></i><span>GPS <b id="gps-readout">EN ESPERA</b></span></span>
         <span class="readout battery-readout"><span class="battery-icon"><i id="battery-level"></i></span><b id="battery-readout">--%</b></span>
@@ -755,14 +758,14 @@
       <aside class="side-column" id="side-panel" aria-label="Sectores y registros">
         <section class="card start-card" id="start-card">
           <h2 class="card-title">Iniciar recorrido</h2>
-          <p class="card-caption">PATRULLA LISTA · SECTOR 01</p>
+          <p class="card-caption">PATRULLA LISTA · SECTOR 01 · GPS ±15 m máx.</p>
           <button class="button primary" id="start-button" type="button">INICIAR RONDA <span aria-hidden="true">→</span></button>
         </section>
         <section class="card hidden" id="active-card">
           <h2 class="card-title">Estado del recorrido</h2>
           <p class="card-caption" id="round-detail">Ubicación GPS activa.</p>
           <div class="progress-track"><span id="progress-bar" style="width:0"></span></div>
-          <div class="progress-label"><span>Sectores registrados</span><strong id="progress-label">0 de 7</strong></div>
+          <div class="progress-label"><span>Puntos registrados</span><strong id="progress-label">0 de 0</strong></div>
           <div id="sector-notice" class="notice warning" style="margin-top:12px">Aún no estás dentro del radio de un sector pendiente.</div>
           <button class="button danger full hidden" id="finish-button" type="button" style="margin-top:12px">Finalizar ronda en Guardia principal</button>
         </section>
@@ -797,25 +800,43 @@
       "use strict";
 
       let POINTS = [];
-      const KEYS = { rounds: "ronda-segura-rounds-v1", scans: "ronda-segura-scans-v1", operator: "ronda-segura-operator-v1" };
+      const START_POINT_ID = "PUNTO 01";
+      const GPS_MAX_ACCURACY_METERS = 15;
+      const GPS_ACQUISITION_TIMEOUT_MS = 45000;
+      const GPS_MIN_STABLE_SAMPLES = 5;
+      const GPS_STABLE_SPREAD_METERS = 10;
+      const GPS_ROUTE_MIN_STEP_METERS = 5;
+      const GPS_ROUTE_MAX_POINTS = 3000;
+      const KEYS = { rounds: "ronda-segura-rounds-v1", scans: "ronda-segura-scans-v1", operator: "ronda-segura-operator-v1", route: "ronda-segura-route-v1" };
       const $ = (selector) => document.querySelector(selector);
       const pointsById = new Map();
       let rounds = readStorage(KEYS.rounds, []);
       let scans = readStorage(KEYS.scans, []);
+      let routePoints = readStorage(KEYS.route, []);
       let operator = readStorage(KEYS.operator, null);
       let activeRound = rounds.find((round) => round.Estado === "En curso") || null;
+      if (!Array.isArray(routePoints)) routePoints = [];
+      routePoints = activeRound ? routePoints.filter((point) => point.ID_Ronda === activeRound.ID_Ronda) : [];
       let activePointId = null;
       let currentPosition = null;
       let watchId = null;
       let map;
       let pointsLoaded = false;
+      let pointsRefreshTimer = null;
+      let pointsRefreshPromise = null;
       let guardMarker;
+      let accuracyCircle;
+      let routeGlowLine;
+      let routeLine;
       const pointLayers = new Map();
       let toastTimer;
       let voiceUnavailableNotified = false;
       let incidentCameraStream = null;
       let selectedIncidentPhoto = null;
       let photoPreviewUrl = null;
+      let routeStorageWarned = false;
+      let recentGpsFixes = [];
+      let coarseLocationWarned = false;
 
       function getCurrentShift(date = new Date()) {
         const minutes = date.getHours() * 60 + date.getMinutes();
@@ -911,6 +932,9 @@
       function hasScan(pointId) {
         return currentRoundScans().some((scan) => scan.ID_Punto === pointId);
       }
+      function getStartPoint() {
+        return pointsById.get(START_POINT_ID) || null;
+      }
       function localDate(value) {
         return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
       }
@@ -946,7 +970,6 @@
         return rows;
       }
       async function loadPoints() {
-        if (pointsLoaded) return true;
         const csvUrl = "https://docs.google.com/spreadsheets/d/1t6Gy69eyiYydAhnzueZrd2B9ZcDAQMkZoyJ8o7ravO8/export?format=csv&gid=0";
         try {
           const response = await fetch(csvUrl, { cache: "no-store" });
@@ -975,23 +998,48 @@
               radius
             };
           });
-          if (loaded.length !== 7 || loaded[0].id !== "PUNTO 01") throw new Error("Se esperaban siete puntos y el primero debe ser PUNTO 01.");
+          if (!loaded.length) throw new Error("La pestaña Punto_Control no contiene puntos válidos.");
           if (new Set(loaded.map((point) => point.id)).size !== loaded.length) throw new Error("La pestaña Punto_Control contiene IDs de punto duplicados.");
-          loaded[0].name = "GUARDIA PRINCIPAL";
+          if (!loaded.some((point) => point.id === START_POINT_ID)) throw new Error(`Falta el punto de inicio ${START_POINT_ID} en Punto_Control.`);
           POINTS = loaded;
           pointsById.clear();
           POINTS.forEach((point) => pointsById.set(point.id, point));
-          $("#points-source").textContent = "Puntos y radios actualizados en vivo desde la hoja compartida.";
+          const startPoint = getStartPoint();
+          $("#login-latitude").textContent = `LAT ${startPoint.lat.toFixed(6)}`;
+          $("#login-longitude").textContent = `LON ${startPoint.lng.toFixed(6)}`;
+          $("#login-point-count").textContent = `${String(POINTS.length).padStart(2, "0")} PUNTOS`;
+          $("#map-point-count").textContent = `${POINTS.length} PUNTOS · SOLO LECTURA`;
+          $("#points-source").textContent = `${POINTS.length} puntos cargados desde Punto_Control · solo lectura · actualización automática cada 60 s.`;
           pointsLoaded = true;
+          if (map) {
+            if (activePointId && !pointsById.has(activePointId)) activePointId = null;
+            renderPointLayers();
+            if (activeRound && currentPosition) detectSector();
+            else {
+              renderCheckpoints();
+              renderRound();
+            }
+          }
           return true;
         } catch (error) {
           console.error("No se pudieron actualizar los puntos desde Google Sheets:", error);
-          POINTS = [];
-          pointsById.clear();
-          $("#points-source").textContent = "No se pudo leer Punto_Control. La ronda requiere conexión con la hoja; no se usan coordenadas locales.";
-          showToast("No se pudo leer Punto_Control. Verifica tu conexión y vuelve a ingresar.");
+          if (!pointsLoaded) {
+            POINTS = [];
+            pointsById.clear();
+            $("#points-source").textContent = `No se pudo leer Punto_Control: ${error.message || "verifica tu conexión."}`;
+            showToast(`No se pudo cargar Punto_Control: ${error.message || "verifica tu conexión."}`);
+          } else {
+            $("#points-source").textContent = `No se pudo actualizar Punto_Control; se conservan temporalmente los ${POINTS.length} puntos leídos.`;
+          }
           return false;
         }
+      }
+      function refreshPoints() {
+        if (pointsRefreshPromise) return pointsRefreshPromise;
+        pointsRefreshPromise = loadPoints().finally(() => {
+          pointsRefreshPromise = null;
+        });
+        return pointsRefreshPromise;
       }
       function initMap() {
         const center = POINTS.reduce((location, point) => ({ lat: location.lat + point.lat / POINTS.length, lng: location.lng + point.lng / POINTS.length }), { lat: 0, lng: 0 });
@@ -1019,17 +1067,40 @@
           "Relieve": terrainLayer,
           "Calles": streetLayer
         }, null, { position: "topright", collapsed: true }).addTo(map);
-        POINTS.forEach((point, index) => {
-          const ring = L.circle([point.lat, point.lng], { radius: point.radius, color: "#3dd9c4", weight: 1, opacity: .68, fillColor: "#3dd9c4", fillOpacity: .08 });
-          ring.addTo(map);
-          const marker = L.marker([point.lat, point.lng], {
-            icon: L.divIcon({ className: "", html: `<span class="point-marker" id="marker-${index + 1}">${index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
-          }).bindTooltip(`Sector ${index + 1} · ${escapeHtml(point.name)} · ${point.radius} m`).addTo(map);
-          pointLayers.set(point.id, { ring, marker });
+        routeGlowLine = L.polyline([], { color: "#1dfff0", weight: 7, opacity: .3, lineCap: "round", lineJoin: "round" }).addTo(map);
+        routeLine = L.polyline([], { color: "#4ce7d6", weight: 3, opacity: .95, lineCap: "round", lineJoin: "round" }).addTo(map);
+        routePoints.forEach((point) => {
+          const coordinates = [point.lat, point.lng];
+          routeGlowLine.addLatLng(coordinates);
+          routeLine.addLatLng(coordinates);
         });
+        renderPointLayers();
         renderCheckpoints();
         renderRound();
         setTimeout(() => map.invalidateSize(), 100);
+      }
+      function renderPointLayers() {
+        const pointIds = new Set(POINTS.map((point) => point.id));
+        pointLayers.forEach((layers, id) => {
+          if (pointIds.has(id)) return;
+          map.removeLayer(layers.ring);
+          map.removeLayer(layers.marker);
+          pointLayers.delete(id);
+        });
+        POINTS.forEach((point, index) => {
+          let layers = pointLayers.get(point.id);
+          if (!layers) {
+            const ring = L.circle([point.lat, point.lng], { radius: point.radius, color: "#3dd9c4", weight: 1, opacity: .68, fillColor: "#3dd9c4", fillOpacity: .08 }).addTo(map);
+            const marker = L.marker([point.lat, point.lng]).addTo(map);
+            layers = { ring, marker };
+            pointLayers.set(point.id, layers);
+          }
+          layers.ring.setLatLng([point.lat, point.lng]).setRadius(point.radius);
+          layers.marker
+            .setLatLng([point.lat, point.lng])
+            .setIcon(L.divIcon({ className: "", html: `<span class="point-marker" id="marker-${index + 1}">${index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }))
+            .bindTooltip(`Punto ${index + 1} · ${escapeHtml(point.name)} · ${point.radius} m`);
+        });
       }
       function renderCheckpoints() {
         $("#checkpoint-list").innerHTML = POINTS.map((point, index) => {
@@ -1048,11 +1119,11 @@
       }
       function renderNextPoint() {
         if (!currentPosition) {
-          $("#next-point-name").textContent = activeRound ? "Buscando señal GPS…" : "GUARDIA PRINCIPAL";
+          $("#next-point-name").textContent = activeRound ? "Buscando señal GPS…" : getStartPoint()?.name || "Punto de inicio";
           $("#next-point-distance").textContent = "-- m";
           $("#next-kicker").textContent = activeRound ? "ADQUIRIENDO COORDENADAS" : "PUNTO DE INICIO";
           $("#range-progress").style.width = "0%";
-          $("#range-caption").textContent = activeRound ? "Esperando una posición precisa" : "Inicia la ronda en el Sector 1";
+          $("#range-caption").textContent = activeRound ? "Esperando una posición precisa" : `Inicia la ronda en ${getStartPoint()?.name || "el punto de inicio"}`;
           return;
         }
         const pending = POINTS.filter((point) => !hasScan(point.id))
@@ -1063,22 +1134,84 @@
           : pending[0];
         if (!selected) {
           $("#next-point-name").textContent = "RECORRIDO COMPLETADO";
-          $("#next-point-distance").textContent = "7 / 7";
+          $("#next-point-distance").textContent = `${POINTS.length} / ${POINTS.length}`;
           $("#next-kicker").textContent = "TODOS LOS CONTROLES";
           $("#range-progress").style.width = "100%";
-          $("#range-caption").textContent = "Regresa a Guardia principal para finalizar";
+          $("#range-caption").textContent = `Regresa a ${getStartPoint()?.name || "Punto de inicio"} para finalizar`;
           return;
         }
         const pointIndex = POINTS.indexOf(selected.point);
-        const remaining = Math.max(0, Math.round(selected.distance - selected.point.radius));
-        const inRadius = selected.distance <= selected.point.radius;
+        const accuracy = currentPosition.accuracy;
+        const reliable = Number.isFinite(accuracy) && accuracy <= GPS_MAX_ACCURACY_METERS;
+        const accuracyText = Number.isFinite(accuracy) ? `±${Math.round(accuracy)} m` : "no disponible";
+        const remaining = Math.max(0, Math.round(selected.distance + (reliable ? accuracy : 0) - selected.point.radius));
+        const inRadius = reliable && selected.distance + accuracy <= selected.point.radius;
         $("#next-kicker").textContent = inRadius ? "GEOFENCE ACTIVO · SECTOR ASEGURADO" : `SIGUIENTE CONTROL · SECTOR ${pointIndex + 1}`;
         $("#next-point-name").textContent = selected.point.name;
-        $("#next-point-distance").textContent = inRadius ? "DENTRO DEL RADIO" : `${remaining} m`;
+        $("#next-point-distance").textContent = inRadius ? "DENTRO DEL RADIO" : `${reliable ? "" : "~"}${remaining} m`;
         $("#range-progress").style.width = `${Math.min(100, Math.max(0, Math.round((1 - remaining / 500) * 100)))}%`;
         $("#range-caption").textContent = inRadius
-          ? `Radio confirmado · ${selected.point.radius} m · registro habilitado`
-          : `A ${Math.round(selected.distance)} m del punto · radio ${selected.point.radius} m`;
+          ? `Radio ${selected.point.radius} m confirmado · GPS ±${Math.round(accuracy)} m · registro habilitado`
+          : reliable
+            ? `Faltan ${remaining} m para confirmar el radio · GPS ${accuracyText}`
+            : `Distancia aproximada · GPS ${accuracyText} · espera mejor señal`;
+      }
+      function updateGpsAccuracyCircle(position) {
+        if (!Number.isFinite(position.coords.accuracy) || position.coords.accuracy > 300) {
+          if (accuracyCircle) {
+            map.removeLayer(accuracyCircle);
+            accuracyCircle = null;
+          }
+          return;
+        }
+        const options = {
+          radius: Math.max(1, position.coords.accuracy),
+          color: position.coords.accuracy <= GPS_MAX_ACCURACY_METERS ? "#3dd9c4" : "#ffc66e",
+          weight: 1,
+          opacity: .7,
+          fillColor: position.coords.accuracy <= GPS_MAX_ACCURACY_METERS ? "#3dd9c4" : "#ffc66e",
+          fillOpacity: .055,
+          className: "gps-accuracy-circle"
+        };
+        if (!accuracyCircle) accuracyCircle = L.circle([position.coords.latitude, position.coords.longitude], options).addTo(map);
+        else accuracyCircle.setLatLng([position.coords.latitude, position.coords.longitude]).setRadius(position.coords.accuracy).setStyle(options);
+      }
+      function recordRoutePosition(position) {
+        if (!activeRound || !Number.isFinite(position.coords.accuracy) || position.coords.accuracy > GPS_MAX_ACCURACY_METERS) return;
+        const previous = routePoints[routePoints.length - 1];
+        const next = {
+          ID_Ronda: activeRound.ID_Ronda,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp || Date.now()
+        };
+        if (previous && distanceMeters(previous, next) < GPS_ROUTE_MIN_STEP_METERS) return;
+        routePoints.push(next);
+        let routeDecimated = false;
+        if (routePoints.length > GPS_ROUTE_MAX_POINTS) {
+          routePoints = routePoints.filter((_, index) => index % 2 === 0);
+          routeDecimated = true;
+        }
+        if (routeGlowLine && routeLine) {
+          if (routeDecimated) {
+            const coordinates = routePoints.map((point) => [point.lat, point.lng]);
+            routeGlowLine.setLatLngs(coordinates);
+            routeLine.setLatLngs(coordinates);
+          } else {
+            routeGlowLine.addLatLng([next.lat, next.lng]);
+            routeLine.addLatLng([next.lat, next.lng]);
+          }
+        }
+        try {
+          localStorage.setItem(KEYS.route, JSON.stringify(routePoints));
+        } catch (error) {
+          console.error("No se pudo guardar el recorrido GPS en este dispositivo:", error);
+          if (!routeStorageWarned) {
+            showToast("La ronda sigue activa, pero no se pudo guardar el trazado GPS en este dispositivo.");
+            routeStorageWarned = true;
+          }
+        }
       }
       function renderRound() {
         const status = $("#round-status");
@@ -1104,16 +1237,16 @@
           return;
         }
         $("#round-detail").textContent = `Inicio: ${localDate(activeRound.Fecha_Hora_Inicio)} · Turno ${activeRound.TURNO}`;
-        const count = currentRoundScans().length;
-        $("#progress-bar").style.width = `${Math.round(count / POINTS.length * 100)}%`;
+        const count = POINTS.filter((point) => hasScan(point.id)).length;
+        $("#progress-bar").style.width = `${POINTS.length ? Math.round(count / POINTS.length * 100) : 0}%`;
         $("#progress-label").textContent = `${count} de ${POINTS.length}`;
         const scansForRound = currentRoundScans().slice().reverse();
         $("#events-list").innerHTML = scansForRound.length ? scansForRound.map((scan) => {
           const point = pointsById.get(scan.ID_Punto);
           return `<div class="event-row"><strong>${escapeHtml(point?.name || scan.ID_Punto)} · ${escapeHtml(scan.Observaciones)}</strong><span>${localDate(scan.Hora_Marca)}${scan.FOTO ? " · Foto adjunta" : ""}</span></div>`;
         }).join("") : '<div class="card-caption">Todavía no hay registros en esta ronda.</div>';
-        const complete = count === POINTS.length;
-        $("#finish-button").classList.toggle("hidden", !(complete && activePointId === POINTS[0].id));
+        const complete = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
+        $("#finish-button").classList.toggle("hidden", !(complete && activePointId === getStartPoint()?.id));
         renderCheckpoints();
       }
       function showSectorEntry(point) {
@@ -1165,29 +1298,70 @@
       }
       function updatePosition(position) {
         currentPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
-        const accuracy = Math.round(position.coords.accuracy);
-        $("#location-status").textContent = `GPS activo · precisión ±${accuracy} m`;
-        $("#gps-readout").textContent = accuracy <= 30 ? `FIJO ±${accuracy}M` : `±${accuracy}M`;
-        $("#gps-indicator").classList.toggle("locked", accuracy <= 30);
-        $("#gps-indicator").classList.toggle("live", accuracy > 30);
-        if (!guardMarker) {
-          guardMarker = L.marker([currentPosition.lat, currentPosition.lng], {
-            icon: L.divIcon({ className: "", html: '<span class="guard-marker"></span>', iconSize: [18, 18], iconAnchor: [9, 9] })
-          }).addTo(map).bindTooltip("Tu ubicación");
-          map.setView([currentPosition.lat, currentPosition.lng], 18);
+        currentPosition.accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : Infinity;
+        const accurate = Number.isFinite(currentPosition.accuracy);
+        const accuracy = accurate ? Math.round(currentPosition.accuracy) : null;
+        const reliable = accurate && currentPosition.accuracy <= GPS_MAX_ACCURACY_METERS;
+        $("#location-status").textContent = reliable
+          ? `GPS preciso · error estimado ±${accuracy} m`
+          : accurate && accuracy > 1000
+            ? `Ubicación de red imprecisa · ±${accuracy} m · activa el GPS del dispositivo`
+            : accurate ? `GPS impreciso · error estimado ±${accuracy} m` : "GPS sin precisión disponible";
+        $("#gps-readout").textContent = reliable ? `FIJO ±${accuracy}M` : accurate ? `±${accuracy}M` : "SIN PRECISIÓN";
+        $("#gps-indicator").classList.toggle("locked", reliable);
+        $("#gps-indicator").classList.toggle("live", false);
+        $("#gps-indicator").classList.toggle("uncertain", !reliable);
+        if (accurate && accuracy > 1000 && !coarseLocationWarned) {
+          showToast("El equipo está entregando una ubicación aproximada de red, no una posición GPS precisa. Abre la app en un teléfono con el GPS y la ubicación precisa habilitados.");
+          coarseLocationWarned = true;
+        } else if (reliable) {
+          coarseLocationWarned = false;
+        }
+        if (reliable) {
+          if (!guardMarker) {
+            guardMarker = L.marker([currentPosition.lat, currentPosition.lng], {
+              icon: L.divIcon({
+                className: "",
+                html: '<span class="guard-stickman" aria-label="Guardia"><svg viewBox="0 0 36 46" role="img" aria-hidden="true"><circle cx="18" cy="7" r="4" fill="#050505"/><path d="M18 12v15M8 19l10-4 10 4M18 27l-9 13M18 27l9 13" fill="none" stroke="#050505" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>',
+                iconSize: [22, 28],
+                iconAnchor: [11, 24]
+              })
+            }).addTo(map).bindTooltip("Tu ubicación GPS precisa");
+            map.setView([currentPosition.lat, currentPosition.lng], 18);
+          } else {
+            const guardLocation = L.latLng(currentPosition.lat, currentPosition.lng);
+            guardMarker.setLatLng(guardLocation);
+            if (!map.getBounds().pad(-0.18).contains(guardLocation)) {
+              map.panTo(guardLocation, { animate: true, duration: .45 });
+            }
+          }
         } else {
-          const guardLocation = L.latLng(currentPosition.lat, currentPosition.lng);
-          guardMarker.setLatLng(guardLocation);
-          if (!map.getBounds().pad(-0.18).contains(guardLocation)) {
-            map.panTo(guardLocation, { animate: true, duration: .45 });
+          if (guardMarker) {
+            map.removeLayer(guardMarker);
+            guardMarker = null;
           }
         }
+        updateGpsAccuracyCircle(position);
+        if (reliable) recordRoutePosition(position);
         if (activeRound) detectSector();
         renderCheckpoints();
       }
       function detectSector() {
+        if (!currentPosition || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS) {
+          activePointId = null;
+          $(".map-wrap").classList.remove("inside");
+          $("#sector-notice").className = "notice warning";
+          const accuracyText = Number.isFinite(currentPosition?.accuracy) ? `±${Math.round(currentPosition.accuracy)} m` : "desconocido";
+          $("#sector-notice").textContent = Number.isFinite(currentPosition?.accuracy) && currentPosition.accuracy > 1000
+            ? `El navegador solo entrega una ubicación aproximada de ${accuracyText}; no es suficiente para ubicarte. Activa la ubicación precisa/GPS del teléfono y permite el acceso a esta página.`
+            : `El GPS tiene un error estimado de ${accuracyText}. Se necesita una lectura de ±${GPS_MAX_ACCURACY_METERS} m o mejor para validar sectores.`;
+          $("#tactical-dock").classList.add("hidden");
+          $("#finish-button").classList.add("hidden");
+          renderRound();
+          return;
+        }
         const inside = POINTS.map((point) => ({ point, distance: distanceMeters(currentPosition, point) }))
-          .filter((item) => item.distance <= item.point.radius)
+          .filter((item) => item.distance + currentPosition.accuracy <= item.point.radius)
           .sort((a, b) => a.distance - b.distance);
         const next = inside.find((item) => !hasScan(item.point.id));
         if (next) {
@@ -1205,21 +1379,70 @@
           showSectorEntry(inside[0].point);
           return;
         }
+        const uncertain = POINTS.map((point) => ({ point, distance: distanceMeters(currentPosition, point) }))
+          .filter((item) => item.distance - currentPosition.accuracy <= item.point.radius)
+          .sort((a, b) => a.distance - b.distance)[0];
         activePointId = null;
         $(".map-wrap").classList.remove("inside");
         $("#sector-notice").className = "notice warning";
-        $("#sector-notice").textContent = "Fuera de los radios de control. Sigue el mapa hasta el siguiente sector.";
+        $("#sector-notice").textContent = uncertain
+          ? `GPS ±${Math.round(currentPosition.accuracy)} m: no se puede confirmar la entrada al radio de ${uncertain.point.name} (${uncertain.point.radius} m). Espera una lectura más precisa.`
+          : "Fuera de los radios de control. Sigue el mapa hasta el siguiente sector.";
         $("#tactical-dock").classList.add("hidden");
         $("#finish-button").classList.add("hidden");
         renderRound();
       }
-      function getCurrentPosition() {
+      function median(values) {
+        const ordered = values.slice().sort((a, b) => a - b);
+        return ordered[Math.floor(ordered.length / 2)];
+      }
+      function getAccuratePosition(onPosition) {
         return new Promise((resolve, reject) => {
           if (!navigator.geolocation) {
             reject(new Error("Este navegador no admite geolocalización."));
             return;
           }
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          let gpsWatchId = null;
+          let timeoutId;
+          let settled = false;
+          const samples = [];
+          const finish = (callback, result) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+            callback(result);
+          };
+          timeoutId = setTimeout(() => {
+            finish(reject, new Error(`No se obtuvo una posición GPS estable con error de ±${GPS_MAX_ACCURACY_METERS} m o mejor en 45 segundos. Activa la ubicación precisa, espera al aire libre y vuelve a intentarlo.`));
+          }, GPS_ACQUISITION_TIMEOUT_MS);
+          gpsWatchId = navigator.geolocation.watchPosition((position) => {
+            onPosition(position);
+            if (!Number.isFinite(position.coords.accuracy) || position.coords.accuracy > GPS_MAX_ACCURACY_METERS) {
+              samples.length = 0;
+              return;
+            }
+            samples.push(position);
+            if (samples.length > GPS_MIN_STABLE_SAMPLES) samples.shift();
+            if (samples.length < GPS_MIN_STABLE_SAMPLES) return;
+            const lat = median(samples.map((sample) => sample.coords.latitude));
+            const lng = median(samples.map((sample) => sample.coords.longitude));
+            const medianPosition = { lat, lng };
+            const spread = Math.max(...samples.map((sample) => distanceMeters(medianPosition, {
+              lat: sample.coords.latitude,
+              lng: sample.coords.longitude
+            })));
+            if (spread > GPS_STABLE_SPREAD_METERS) return;
+            const best = samples.reduce((bestSample, sample) => sample.coords.accuracy < bestSample.coords.accuracy ? sample : bestSample);
+            const accuracy = Math.ceil(best.coords.accuracy + spread);
+            if (accuracy > GPS_MAX_ACCURACY_METERS) return;
+            finish(resolve, {
+              coords: { ...best.coords, latitude: lat, longitude: lng, accuracy },
+              timestamp: best.timestamp
+            });
+          }, (error) => {
+            finish(reject, error);
+          }, { enableHighAccuracy: true, timeout: GPS_ACQUISITION_TIMEOUT_MS + 5000, maximumAge: 0 });
         });
       }
       function locationError(error) {
@@ -1230,26 +1453,48 @@
         };
         return messages[error.code] || error.message || "No se pudo obtener la ubicación.";
       }
+      function handleLocationError(error, context) {
+        currentPosition = null;
+        if (guardMarker) {
+          map.removeLayer(guardMarker);
+          guardMarker = null;
+        }
+        if (accuracyCircle) {
+          map.removeLayer(accuracyCircle);
+          accuracyCircle = null;
+        }
+        $("#location-status").textContent = locationError(error);
+        $("#gps-readout").textContent = "SIN SEÑAL";
+        $("#gps-indicator").className = "readout-dot gps-dot lost";
+        $("#sector-notice").className = "notice error";
+        $("#sector-notice").textContent = `${context}: ${locationError(error)}`;
+        if (activeRound) detectSector();
+        else renderCheckpoints();
+      }
       async function startRound() {
-        if (!pointsLoaded || POINTS.length !== 7) {
-          showToast("No se puede iniciar la ronda sin cargar los puntos y radios de la hoja Punto_Control.");
+        if (!pointsLoaded || POINTS.length === 0) {
+          showToast("No se puede iniciar la ronda sin cargar puntos y radios de la hoja Punto_Control.");
+          return;
+        }
+        const startPoint = getStartPoint();
+        if (!startPoint) {
+          showToast(`No se puede iniciar: falta ${START_POINT_ID} en la hoja Punto_Control.`);
           return;
         }
         const button = $("#start-button");
         let position = null;
         button.disabled = true;
-        button.textContent = "Obteniendo ubicación…";
+        button.textContent = "Buscando GPS preciso…";
         $("#gps-readout").textContent = "BUSCANDO";
         $("#gps-indicator").className = "readout-dot gps-dot live";
         try {
           updateAutomaticShift();
-          position = await getCurrentPosition();
+          position = await getAccuratePosition(updatePosition);
           updatePosition(position);
           const location = { lat: position.coords.latitude, lng: position.coords.longitude };
-          const startPoint = POINTS[0];
           const distance = distanceMeters(location, startPoint);
-          if (distance > startPoint.radius) {
-            throw new Error(`No se puede confirmar que estés en Guardia principal (Sector 1): el GPS indica ${Math.round(distance)} m del puesto, con una precisión de ±${Math.round(position.coords.accuracy)} m. Acércate al puesto y espera una ubicación GPS más precisa.`);
+          if (distance + position.coords.accuracy > startPoint.radius) {
+            throw new Error(`No se puede confirmar que estés dentro del radio de Guardia principal: estás a ${Math.round(distance)} m y el error estimado es ±${Math.round(position.coords.accuracy)} m (radio ${startPoint.radius} m).`);
           }
           const round = {
             ID_Ronda: makeId("RONDA"),
@@ -1265,23 +1510,27 @@
             activeRound = null;
             return;
           }
+          routePoints = [];
+          routeStorageWarned = false;
+          if (routeGlowLine && routeLine) {
+            routeGlowLine.setLatLngs([]);
+            routeLine.setLatLngs([]);
+          }
+          recordRoutePosition(position);
           watchId = navigator.geolocation.watchPosition(updatePosition, (error) => {
-            $("#location-status").textContent = locationError(error);
-            $("#gps-readout").textContent = "SIN SEÑAL";
-            $("#gps-indicator").className = "readout-dot gps-dot lost";
-            $("#sector-notice").className = "notice error";
-            $("#sector-notice").textContent = `Se perdió la ubicación GPS: ${locationError(error)}`;
-          }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+            handleLocationError(error, "Se perdió la ubicación GPS");
+          }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
           $("#location-status").textContent = `GPS activo · precisión ±${Math.round(position.coords.accuracy)} m`;
           renderRound();
           showToast("Ronda iniciada. Sigue el radar hasta el Sector 1 para registrar la entrada.");
         } catch (error) {
           console.error("No se pudo iniciar la ronda:", error);
-          if (position) {
-            const accuracy = Math.round(position.coords.accuracy);
-            $("#gps-readout").textContent = accuracy <= 30 ? `FIJO ±${accuracy}M` : `±${accuracy}M`;
-            $("#gps-indicator").className = `readout-dot gps-dot ${accuracy <= 30 ? "locked" : "live"}`;
-            $("#location-status").textContent = `GPS recibido · precisión ±${accuracy} m`;
+          const lastFix = position || (currentPosition ? { coords: currentPosition } : null);
+          if (lastFix) {
+            const accuracy = Math.round(lastFix.coords.accuracy);
+            $("#gps-readout").textContent = accuracy <= GPS_MAX_ACCURACY_METERS ? `FIJO ±${accuracy}M` : Number.isFinite(accuracy) ? `±${accuracy}M` : "SIN PRECISIÓN";
+            $("#gps-indicator").className = `readout-dot gps-dot ${accuracy <= GPS_MAX_ACCURACY_METERS ? "locked" : "uncertain"}`;
+            $("#location-status").textContent = Number.isFinite(accuracy) ? `GPS recibido · error estimado ±${accuracy} m` : "GPS sin precisión disponible";
           } else {
             $("#gps-readout").textContent = "SIN SEÑAL";
             $("#gps-indicator").className = "readout-dot gps-dot lost";
@@ -1293,6 +1542,15 @@
         }
       }
       function commitScan(point, observations, photo = "") {
+        if (!currentPosition || !Number.isFinite(currentPosition.accuracy) || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS) {
+          showToast(`No se puede registrar el sector: se necesita una lectura GPS con error de ±${GPS_MAX_ACCURACY_METERS} m o mejor.`);
+          return false;
+        }
+        const distance = distanceMeters(currentPosition, point);
+        if (distance + currentPosition.accuracy > point.radius) {
+          showToast(`La ubicación no confirma el ingreso: distancia ${Math.round(distance)} m, error ±${Math.round(currentPosition.accuracy)} m, radio ${point.radius} m.`);
+          return false;
+        }
         const scan = {
           ID_Escaneo: makeId("ESCANEO"),
           ID_Ronda: activeRound.ID_Ronda,
@@ -1310,7 +1568,9 @@
         activePointId = point.id;
         $("#sector-actions").classList.add("hidden");
         renderRound();
-        if (currentPosition && distanceMeters(currentPosition, POINTS[0]) <= POINTS[0].radius && currentRoundScans().length === POINTS.length) {
+        const startPoint = getStartPoint();
+        const allPointsVisited = POINTS.length > 0 && POINTS.every((item) => hasScan(item.id));
+        if (startPoint && currentPosition && currentPosition.accuracy <= GPS_MAX_ACCURACY_METERS && distanceMeters(currentPosition, startPoint) + currentPosition.accuracy <= startPoint.radius && allPointsVisited) {
           $("#finish-button").classList.remove("hidden");
         }
         showToast(`Registro guardado: ${point.name}.`);
@@ -1417,9 +1677,11 @@
         }, "image/jpeg", 0.9);
       }
       function finishRound() {
-        if (!activeRound || currentRoundScans().length !== POINTS.length) return;
-        if (!currentPosition || distanceMeters(currentPosition, POINTS[0]) > POINTS[0].radius) {
-          showToast("Debes regresar al radio de Guardia principal para terminar la ronda.");
+        const startPoint = getStartPoint();
+        const allPointsVisited = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
+        if (!activeRound || !allPointsVisited) return;
+        if (!startPoint || !currentPosition || !Number.isFinite(currentPosition.accuracy) || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS || distanceMeters(currentPosition, startPoint) + currentPosition.accuracy > startPoint.radius) {
+          showToast(`Debes regresar al radio de ${startPoint?.name || "Punto de inicio"} con GPS de ±${GPS_MAX_ACCURACY_METERS} m o mejor para terminar la ronda.`);
           return;
         }
         if (!window.confirm("¿Finalizar esta ronda?")) return;
@@ -1470,7 +1732,7 @@
         $("#operator-label").textContent = `${operator.name} · ${operator.shift}`;
         $("#login-screen").classList.add("hidden");
         $("#app").classList.remove("hidden");
-        if (!await loadPoints()) {
+        if (!await refreshPoints()) {
           try {
             localStorage.removeItem(KEYS.operator);
           } catch (error) {
@@ -1481,25 +1743,27 @@
           $("#login-screen").classList.remove("hidden");
           return;
         }
+        if (pointsRefreshTimer !== null) clearInterval(pointsRefreshTimer);
+        pointsRefreshTimer = setInterval(() => {
+          if (!document.hidden && !$("#app").classList.contains("hidden")) refreshPoints();
+        }, 60000);
         if (!map) initMap();
         else setTimeout(() => map.invalidateSize(), 100);
         if (activeRound) {
           $("#location-status").textContent = "Recuperando ubicación de la ronda…";
           $("#gps-readout").textContent = "BUSCANDO";
           $("#gps-indicator").className = "readout-dot gps-dot live";
-          navigator.geolocation?.getCurrentPosition(updatePosition, (error) => {
-            $("#location-status").textContent = locationError(error);
-            $("#gps-readout").textContent = "SIN SEÑAL";
-            $("#gps-indicator").className = "readout-dot gps-dot lost";
-            $("#sector-notice").className = "notice error";
-            $("#sector-notice").textContent = `No se pudo recuperar la ubicación: ${locationError(error)}`;
-          }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(updatePosition, (error) => {
+              handleLocationError(error, "No se pudo recuperar la ubicación");
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          } else {
+            handleLocationError(new Error("Este navegador no admite geolocalización."), "No se pudo recuperar la ubicación");
+          }
           if (navigator.geolocation && watchId === null) {
             watchId = navigator.geolocation.watchPosition(updatePosition, (error) => {
-              $("#location-status").textContent = locationError(error);
-              $("#gps-readout").textContent = "SIN SEÑAL";
-              $("#gps-indicator").className = "readout-dot gps-dot lost";
-            }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+              handleLocationError(error, "Se perdió la ubicación GPS");
+            }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
           }
         }
         renderRound();
@@ -1508,6 +1772,8 @@
         if (activeRound && !window.confirm("Hay una ronda en curso. ¿Cerrar la sesión y dejarla pendiente en este dispositivo?")) return;
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         watchId = null;
+        if (pointsRefreshTimer !== null) clearInterval(pointsRefreshTimer);
+        pointsRefreshTimer = null;
         try {
           localStorage.removeItem(KEYS.operator);
         } catch (error) {
@@ -1522,6 +1788,9 @@
         event.preventDefault();
         if (!event.currentTarget.reportValidity()) return;
         login(new FormData(event.currentTarget));
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && !$("#app").classList.contains("hidden")) refreshPoints();
       });
       $("#start-button").addEventListener("click", startRound);
       $("#novelty-button").addEventListener("click", openIncident);

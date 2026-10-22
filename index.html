@@ -793,18 +793,10 @@
     (() => {
       "use strict";
 
-      let POINTS = [
-        { id: "PUNTO 01", name: "GUARDIA PRINCIPAL", qr: "Punto 1: Puesto 1 . CARGADO CON ÉXITO", lat: -32.9402736, lng: -68.7609639, radius: 50 },
-        { id: "PUNTO 02", name: "PLAYA SUR-OESTE", qr: "Punto 2. Playa sur-oeste. Cargado con éxito", lat: -32.940271, lng: -68.762040, radius: 50 },
-        { id: "PUNTO 03", name: "COMEDOR-SUM", qr: "Punto 3. Comedor y Sum. CARGADO CON ÉXITO", lat: -32.939764, lng: -68.761314, radius: 50 },
-        { id: "PUNTO 04", name: "BARRERA NOR.OESTE", qr: "Punto 4. Barrera Nor-oeste. Cargado con éxito", lat: -32.938542, lng: -68.761115, radius: 100 },
-        { id: "PUNTO 05", name: "RECEPCION Y EXPEDICION", qr: "Punto 5. Recepción y Expedición. CARGADO CON ÉXITO", lat: -32.939699, lng: -68.760647, radius: 50 },
-        { id: "PUNTO 06", name: "ADMINISTRACION", qr: "punto 6. Administración. CARGADO CON ÉXITO", lat: -32.939960, lng: -68.761111, radius: 50 },
-        { id: "PUNTO 07", name: "PLANTA LOGISTICA", qr: "Punto 7. Planta logística. CARGADO CON ÉXITO", lat: -32.939140, lng: -68.760172, radius: 50 }
-      ];
+      let POINTS = [];
       const KEYS = { rounds: "ronda-segura-rounds-v1", scans: "ronda-segura-scans-v1", operator: "ronda-segura-operator-v1" };
       const $ = (selector) => document.querySelector(selector);
-      const pointsById = new Map(POINTS.map((point) => [point.id, point]));
+      const pointsById = new Map();
       let rounds = readStorage(KEYS.rounds, []);
       let scans = readStorage(KEYS.scans, []);
       let operator = readStorage(KEYS.operator, null);
@@ -948,7 +940,7 @@
         return rows;
       }
       async function loadPoints() {
-        if (pointsLoaded) return;
+        if (pointsLoaded) return true;
         const csvUrl = "https://docs.google.com/spreadsheets/d/1t6Gy69eyiYydAhnzueZrd2B9ZcDAQMkZoyJ8o7ravO8/export?format=csv&gid=0";
         try {
           const response = await fetch(csvUrl, { cache: "no-store" });
@@ -963,35 +955,41 @@
             const value = (name) => (values[column(name)] || "").trim();
             const coords = value("Ubicacion_GPS").match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
             const radius = Number(value("Radio_Metros"));
-            if (!value("ID_Punto") || !value("Nombre_Punto") || !coords || !Number.isFinite(radius) || radius <= 0) {
+            const lat = coords ? Number(coords[1]) : NaN;
+            const lng = coords ? Number(coords[2]) : NaN;
+            if (!value("ID_Punto") || !value("Nombre_Punto") || !coords || !Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lng) || Math.abs(lng) > 180 || !Number.isFinite(radius) || radius <= 0) {
               throw new Error("Hay un punto con nombre, coordenadas GPS o radio inválidos.");
             }
             return {
               id: value("ID_Punto"),
               name: value("Nombre_Punto"),
               qr: value("QR_Code"),
-              lat: Number(coords[1]),
-              lng: Number(coords[2]),
+              lat,
+              lng,
               radius
             };
           });
           if (loaded.length !== 7 || loaded[0].id !== "PUNTO 01") throw new Error("Se esperaban siete puntos y el primero debe ser PUNTO 01.");
+          if (new Set(loaded.map((point) => point.id)).size !== loaded.length) throw new Error("La pestaña Punto_Control contiene IDs de punto duplicados.");
           loaded[0].name = "GUARDIA PRINCIPAL";
-          loaded[0].lat = -32.9402736;
-          loaded[0].lng = -68.7609639;
           POINTS = loaded;
           pointsById.clear();
           POINTS.forEach((point) => pointsById.set(point.id, point));
           $("#points-source").textContent = "Puntos y radios actualizados en vivo desde la hoja compartida.";
+          pointsLoaded = true;
+          return true;
         } catch (error) {
           console.error("No se pudieron actualizar los puntos desde Google Sheets:", error);
-          $("#points-source").textContent = "No se pudo actualizar Punto_Control; se usan los siete puntos guardados en la app.";
-          showToast("No se pudieron actualizar los puntos desde la hoja; se usarán los datos disponibles en la app.");
+          POINTS = [];
+          pointsById.clear();
+          $("#points-source").textContent = "No se pudo leer Punto_Control. La ronda requiere conexión con la hoja; no se usan coordenadas locales.";
+          showToast("No se pudo leer Punto_Control. Verifica tu conexión y vuelve a ingresar.");
+          return false;
         }
-        pointsLoaded = true;
       }
       function initMap() {
-        map = L.map("map", { zoomControl: true }).setView([-32.93955, -68.7611], 17);
+        const center = POINTS.reduce((location, point) => ({ lat: location.lat + point.lat / POINTS.length, lng: location.lng + point.lng / POINTS.length }), { lat: 0, lng: 0 });
+        map = L.map("map", { zoomControl: true }).setView([center.lat, center.lng], 17);
         const darkLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 20,
           className: "tactical-dark-tiles",
@@ -1227,6 +1225,10 @@
         return messages[error.code] || error.message || "No se pudo obtener la ubicación.";
       }
       async function startRound() {
+        if (!pointsLoaded || POINTS.length !== 7) {
+          showToast("No se puede iniciar la ronda sin cargar los puntos y radios de la hoja Punto_Control.");
+          return;
+        }
         const button = $("#start-button");
         let position = null;
         button.disabled = true;
@@ -1375,7 +1377,17 @@
         $("#operator-label").textContent = `${operator.name} · ${operator.shift}`;
         $("#login-screen").classList.add("hidden");
         $("#app").classList.remove("hidden");
-        await loadPoints();
+        if (!await loadPoints()) {
+          try {
+            localStorage.removeItem(KEYS.operator);
+          } catch (error) {
+            console.error("No se pudo limpiar la sesión porque Punto_Control no está disponible:", error);
+          }
+          operator = null;
+          $("#app").classList.add("hidden");
+          $("#login-screen").classList.remove("hidden");
+          return;
+        }
         if (!map) initMap();
         else setTimeout(() => map.invalidateSize(), 100);
         if (activeRound) {

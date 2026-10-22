@@ -210,8 +210,11 @@
     .corner-bl { bottom: 9px; left: 9px; border-width: 0 0 2px 2px; }
     .corner-br { right: 9px; bottom: 9px; border-width: 0 2px 2px 0; }
     .viewfinder-mark { position: absolute; z-index: 2; top: 15px; color: rgba(132,238,218,.72); font: 8px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
+    .camera-viewfinder video, .camera-viewfinder .photo-preview { position: relative; z-index: 4; grid-column: 1 / -1; max-width: 100%; max-height: 230px; margin: 0; border-radius: 8px; object-fit: contain; }
+    .camera-viewfinder video { width: min(100%, 360px); background: #02080c; }
+    .camera-actions { position: relative; z-index: 4; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .camera-actions .button { min-height: 37px; padding: 0 11px; font-size: 9px; }
     .camera-viewfinder input[type="file"] { position: relative; z-index: 4; max-width: 280px; border-color: rgba(67,205,201,.28); background: rgba(3,15,21,.8); }
-    .camera-viewfinder .photo-preview { position: relative; z-index: 4; }
     @keyframes signal-pulse { 0%,100% { opacity: 1; } 50% { opacity: .48; } }
     @keyframes radar-expand { 0% { opacity: .48; transform: scale(.48); } 100% { opacity: 0; transform: scale(1.16); } }
     @keyframes dock-arrive { from { filter: brightness(1.5); } to { filter: brightness(1); } }
@@ -783,7 +786,7 @@
     <form class="modal" id="incident-form">
       <div class="modal-head"><div><span class="terminal-kicker">CANAL DE INCIDENCIA · ENCRIPTADO</span><h2 id="incident-title">Registrar novedad</h2><p id="incident-sector"></p></div><button class="modal-close" type="button" id="close-incident" aria-label="Cerrar">×</button></div>
       <div class="field terminal-field"><label for="incident-notes">DESCRIPCIÓN DEL EVENTO</label><textarea id="incident-notes" required maxlength="2000" placeholder="> DETALLA LA NOVEDAD, UBICACIÓN Y CONDICIÓN..."></textarea></div>
-      <div class="field camera-field"><label for="incident-photo">CAPTURA FOTOGRÁFICA</label><div class="camera-viewfinder"><i class="frame-corner corner-tl"></i><i class="frame-corner corner-tr"></i><i class="frame-corner corner-bl"></i><i class="frame-corner corner-br"></i><span class="viewfinder-mark">OBJETIVO / FOTO REQUERIDA</span><input id="incident-photo" type="file" accept="image/*" capture="environment" required><img id="photo-preview" class="photo-preview hidden" alt="Vista previa de la fotografía"></div><span class="card-caption">Se solicitará acceso a la cámara del dispositivo.</span></div>
+      <div class="field camera-field"><label for="incident-photo">CAPTURA FOTOGRÁFICA</label><div class="camera-viewfinder"><i class="frame-corner corner-tl"></i><i class="frame-corner corner-tr"></i><i class="frame-corner corner-bl"></i><i class="frame-corner corner-br"></i><span class="viewfinder-mark">OBJETIVO / FOTO REQUERIDA</span><video id="incident-camera" class="hidden" autoplay playsinline aria-label="Vista en vivo de la cámara"></video><img id="photo-preview" class="photo-preview hidden" alt="Vista previa de la fotografía"><div class="camera-actions"><button class="button primary" id="open-camera" type="button">ABRIR CÁMARA</button><button class="button primary hidden" id="capture-photo" type="button">CAPTURAR FOTO</button></div><input id="incident-photo" type="file" accept="image/*" capture="environment"></div><span class="card-caption">Abre la cámara del dispositivo o selecciona una imagen. La foto es obligatoria.</span></div>
       <div class="modal-foot"><button class="button secondary" type="button" id="cancel-incident">Cancelar</button><button class="button primary" type="submit">Guardar registro</button></div>
     </form>
   </div>
@@ -810,6 +813,9 @@
       const pointLayers = new Map();
       let toastTimer;
       let voiceUnavailableNotified = false;
+      let incidentCameraStream = null;
+      let selectedIncidentPhoto = null;
+      let photoPreviewUrl = null;
 
       function getCurrentShift(date = new Date()) {
         const minutes = date.getHours() * 60 + date.getMinutes();
@@ -1314,14 +1320,101 @@
         if (!activeRound || !activePointId || hasScan(activePointId)) return;
         const point = pointsById.get(activePointId);
         $("#incident-sector").textContent = `Sector ${POINTS.indexOf(point) + 1} · ${point.name}`;
+        stopIncidentCamera();
         $("#incident-form").reset();
+        selectedIncidentPhoto = null;
+        if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+        photoPreviewUrl = null;
         $("#photo-preview").src = "";
         $("#photo-preview").classList.add("hidden");
+        $("#incident-camera").classList.add("hidden");
+        $("#open-camera").classList.remove("hidden");
+        $("#capture-photo").classList.add("hidden");
         $("#incident-backdrop").classList.add("open");
         $("#incident-notes").focus();
       }
       function closeIncident() {
+        stopIncidentCamera();
         $("#incident-backdrop").classList.remove("open");
+        selectedIncidentPhoto = null;
+        if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+        photoPreviewUrl = null;
+        $("#photo-preview").src = "";
+        $("#photo-preview").classList.add("hidden");
+      }
+      function stopIncidentCamera() {
+        if (incidentCameraStream) {
+          incidentCameraStream.getTracks().forEach((track) => track.stop());
+          incidentCameraStream = null;
+        }
+        const video = $("#incident-camera");
+        if (video) {
+          video.srcObject = null;
+          video.classList.add("hidden");
+        }
+        if ($("#capture-photo")) $("#capture-photo").classList.add("hidden");
+        if ($("#open-camera")) $("#open-camera").classList.remove("hidden");
+      }
+      async function startIncidentCamera() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          showToast("Este navegador no permite abrir la cámara aquí. Usa «Elegir archivo» para adjuntar una foto.");
+          return;
+        }
+        const openButton = $("#open-camera");
+        openButton.disabled = true;
+        openButton.textContent = "ABRIENDO CÁMARA…";
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+          if (!$("#incident-backdrop").classList.contains("open")) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          incidentCameraStream = stream;
+          const video = $("#incident-camera");
+          video.srcObject = stream;
+          video.classList.remove("hidden");
+          await video.play();
+          openButton.classList.add("hidden");
+          $("#capture-photo").classList.remove("hidden");
+        } catch (error) {
+          stopIncidentCamera();
+          console.error("No se pudo abrir la cámara para registrar la novedad:", error);
+          const message = error.name === "NotAllowedError" || error.name === "SecurityError"
+            ? "No se concedió permiso para usar la cámara. Habilítalo y abre la app por HTTPS o localhost; también puedes adjuntar una foto."
+            : error.name === "NotFoundError" || error.name === "OverconstrainedError"
+              ? "No se encontró una cámara disponible. Puedes adjuntar una foto desde el dispositivo."
+              : "No se pudo iniciar la cámara. Comprueba que no esté siendo usada por otra aplicación o adjunta una foto.";
+          showToast(message);
+        } finally {
+          openButton.disabled = false;
+          openButton.textContent = "ABRIR CÁMARA";
+        }
+      }
+      function captureIncidentPhoto() {
+        const video = $("#incident-camera");
+        if (!incidentCameraStream || !video.videoWidth || !video.videoHeight) {
+          showToast("La cámara todavía no está lista. Espera un momento e inténtalo de nuevo.");
+          return;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            showToast("No se pudo capturar la imagen. Inténtalo nuevamente o adjunta una foto.");
+            return;
+          }
+          selectedIncidentPhoto = new File([blob], `novedad-${Date.now()}.jpg`, { type: "image/jpeg" });
+          if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+          photoPreviewUrl = URL.createObjectURL(selectedIncidentPhoto);
+          $("#photo-preview").src = photoPreviewUrl;
+          $("#photo-preview").classList.remove("hidden");
+          stopIncidentCamera();
+        }, "image/jpeg", 0.9);
       }
       function finishRound() {
         if (!activeRound || currentRoundScans().length !== POINTS.length) return;
@@ -1443,6 +1536,8 @@
       $("#export-scans").addEventListener("click", () => exportCsv("scans"));
       $("#close-incident").addEventListener("click", closeIncident);
       $("#cancel-incident").addEventListener("click", closeIncident);
+      $("#open-camera").addEventListener("click", startIncidentCamera);
+      $("#capture-photo").addEventListener("click", captureIncidentPhoto);
       $("#incident-photo").addEventListener("change", (event) => {
         const file = event.currentTarget.files[0];
         if (!file) return;
@@ -1451,14 +1546,17 @@
           showToast("Selecciona un archivo de imagen para adjuntar.");
           return;
         }
+        selectedIncidentPhoto = file;
+        if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+        photoPreviewUrl = URL.createObjectURL(file);
         const preview = $("#photo-preview");
-        preview.src = URL.createObjectURL(file);
+        preview.src = photoPreviewUrl;
         preview.classList.remove("hidden");
       });
       $("#incident-form").addEventListener("submit", (event) => {
         event.preventDefault();
         const notes = $("#incident-notes").value.trim();
-        const file = $("#incident-photo").files[0];
+        const file = selectedIncidentPhoto;
         if (!notes || !file || !activePointId || !currentPosition) {
           showToast("Completa la descripción, adjunta una foto y confirma tu ubicación GPS.");
           return;

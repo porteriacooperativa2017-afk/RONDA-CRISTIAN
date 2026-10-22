@@ -794,7 +794,7 @@
       "use strict";
 
       let POINTS = [
-        { id: "PUNTO 01", name: "GUARDIA PRINCIPAL", qr: "Punto 1: Puesto 1 . CARGADO CON ÉXITO", lat: -32.940235, lng: -68.760792, radius: 50 },
+        { id: "PUNTO 01", name: "GUARDIA PRINCIPAL", qr: "Punto 1: Puesto 1 . CARGADO CON ÉXITO", lat: -32.9402736, lng: -68.7609639, radius: 50 },
         { id: "PUNTO 02", name: "PLAYA SUR-OESTE", qr: "Punto 2. Playa sur-oeste. Cargado con éxito", lat: -32.940271, lng: -68.762040, radius: 50 },
         { id: "PUNTO 03", name: "COMEDOR-SUM", qr: "Punto 3. Comedor y Sum. CARGADO CON ÉXITO", lat: -32.939764, lng: -68.761314, radius: 50 },
         { id: "PUNTO 04", name: "BARRERA NOR.OESTE", qr: "Punto 4. Barrera Nor-oeste. Cargado con éxito", lat: -32.938542, lng: -68.761115, radius: 100 },
@@ -977,6 +977,8 @@
           });
           if (loaded.length !== 7 || loaded[0].id !== "PUNTO 01") throw new Error("Se esperaban siete puntos y el primero debe ser PUNTO 01.");
           loaded[0].name = "GUARDIA PRINCIPAL";
+          loaded[0].lat = -32.9402736;
+          loaded[0].lng = -68.7609639;
           POINTS = loaded;
           pointsById.clear();
           POINTS.forEach((point) => pointsById.set(point.id, point));
@@ -1226,18 +1228,20 @@
       }
       async function startRound() {
         const button = $("#start-button");
+        let position = null;
         button.disabled = true;
         button.textContent = "Obteniendo ubicación…";
         $("#gps-readout").textContent = "BUSCANDO";
         $("#gps-indicator").className = "readout-dot gps-dot live";
         try {
           updateAutomaticShift();
-          const position = await getCurrentPosition();
+          position = await getCurrentPosition();
+          updatePosition(position);
           const location = { lat: position.coords.latitude, lng: position.coords.longitude };
           const startPoint = POINTS[0];
           const distance = distanceMeters(location, startPoint);
           if (distance > startPoint.radius) {
-            throw new Error(`Para comenzar, debes estar en Guardia principal (Sector 1). Estás a ${Math.round(distance)} m; el radio permitido es ${startPoint.radius} m.`);
+            throw new Error(`No se puede confirmar que estés en Guardia principal (Sector 1): el GPS indica ${Math.round(distance)} m del puesto, con una precisión de ±${Math.round(position.coords.accuracy)} m. Acércate al puesto y espera una ubicación GPS más precisa.`);
           }
           const round = {
             ID_Ronda: makeId("RONDA"),
@@ -1253,7 +1257,6 @@
             activeRound = null;
             return;
           }
-          updatePosition(position);
           watchId = navigator.geolocation.watchPosition(updatePosition, (error) => {
             $("#location-status").textContent = locationError(error);
             $("#gps-readout").textContent = "SIN SEÑAL";
@@ -1266,8 +1269,15 @@
           showToast("Ronda iniciada. Sigue el radar hasta el Sector 1 para registrar la entrada.");
         } catch (error) {
           console.error("No se pudo iniciar la ronda:", error);
-          $("#gps-readout").textContent = "SIN SEÑAL";
-          $("#gps-indicator").className = "readout-dot gps-dot lost";
+          if (position) {
+            const accuracy = Math.round(position.coords.accuracy);
+            $("#gps-readout").textContent = accuracy <= 30 ? `FIJO ±${accuracy}M` : `±${accuracy}M`;
+            $("#gps-indicator").className = `readout-dot gps-dot ${accuracy <= 30 ? "locked" : "live"}`;
+            $("#location-status").textContent = `GPS recibido · precisión ±${accuracy} m`;
+          } else {
+            $("#gps-readout").textContent = "SIN SEÑAL";
+            $("#gps-indicator").className = "readout-dot gps-dot lost";
+          }
           showToast(error.message || locationError(error));
         } finally {
           button.disabled = false;

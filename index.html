@@ -767,7 +767,7 @@
           <div class="progress-track"><span id="progress-bar" style="width:0"></span></div>
           <div class="progress-label"><span>Puntos registrados</span><strong id="progress-label">0 de 0</strong></div>
           <div id="sector-notice" class="notice warning" style="margin-top:12px">Aún no estás dentro del radio de un sector pendiente.</div>
-          <button class="button danger full hidden" id="finish-button" type="button" style="margin-top:12px">Finalizar ronda en Guardia principal</button>
+          <button class="button danger full hidden" id="finish-button" type="button" style="margin-top:12px">Finalizar ronda</button>
         </section>
         <section class="card">
           <h2 class="card-title">Puntos de control</h2>
@@ -803,6 +803,7 @@
       const START_POINT_ID = "PUNTO 01";
       const GPS_MAX_ACCURACY_METERS = 15;
       const GPS_ACQUISITION_TIMEOUT_MS = 45000;
+      const GPS_MAX_POSITION_AGE_MS = 10000;
       const GPS_MIN_STABLE_SAMPLES = 5;
       const GPS_STABLE_SPREAD_METERS = 10;
       const GPS_ROUTE_MIN_STEP_METERS = 5;
@@ -1227,8 +1228,9 @@
         $("#radar-label").textContent = activePointId ? "RADAR TÁCTICO · GEOFENCE ACTIVO" : inProgress ? "RADAR TÁCTICO · BUSCANDO ZONA" : "RADAR TÁCTICO · EN ESPERA";
         $("#start-card").classList.toggle("hidden", inProgress);
         $("#active-card").classList.toggle("hidden", !inProgress);
+        const complete = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
         if (!inProgress) {
-          $("#finish-button").classList.add("hidden");
+          updateFinishButton(complete);
           $("#sector-actions").classList.add("hidden");
           $("#sector-notice").textContent = "Aún no estás dentro del radio de un sector pendiente.";
           $("#sector-notice").className = "notice warning";
@@ -1246,9 +1248,16 @@
           const point = pointsById.get(scan.ID_Punto);
           return `<div class="event-row"><strong>${escapeHtml(point?.name || scan.ID_Punto)} · ${escapeHtml(scan.Observaciones)}</strong><span>${localDate(scan.Hora_Marca)}${scan.FOTO ? " · Foto adjunta" : ""}</span></div>`;
         }).join("") : '<div class="card-caption">Todavía no hay registros en esta ronda.</div>';
-        const complete = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
-        $("#finish-button").classList.toggle("hidden", !(complete && activePointId === getStartPoint()?.id));
+        updateFinishButton(complete);
         renderCheckpoints();
+      }
+      function updateFinishButton(complete = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id))) {
+        const button = $("#finish-button");
+        const startPoint = getStartPoint();
+        const atStart = Boolean(startPoint && currentPosition && isCurrentPositionUsable() &&
+          distanceMeters(currentPosition, startPoint) + currentPosition.accuracy <= startPoint.radius);
+        button.classList.toggle("hidden", !(activeRound && complete));
+        button.textContent = atStart ? "Finalizar ronda" : `Volver a ${startPoint?.name || "Punto de inicio"} para finalizar`;
       }
       function showSectorEntry(point) {
         activePointId = point.id;
@@ -1297,9 +1306,26 @@
           }
         }
       }
+      function isUsablePosition(position) {
+        if (!position?.coords) return false;
+        const { latitude, longitude, accuracy } = position.coords;
+        const timestamp = Number.isFinite(position.timestamp) ? position.timestamp : Date.now();
+        return Number.isFinite(latitude) && Math.abs(latitude) <= 90 &&
+          Number.isFinite(longitude) && Math.abs(longitude) <= 180 &&
+          Number.isFinite(accuracy) && accuracy > 0 &&
+          Date.now() - timestamp <= GPS_MAX_POSITION_AGE_MS;
+      }
+      function isCurrentPositionUsable() {
+        return Boolean(currentPosition &&
+          Number.isFinite(currentPosition.accuracy) &&
+          currentPosition.accuracy <= GPS_MAX_ACCURACY_METERS &&
+          Date.now() - currentPosition.updatedAt <= GPS_MAX_POSITION_AGE_MS);
+      }
       function updatePosition(position) {
+        if (!isUsablePosition(position)) return;
         currentPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
         currentPosition.accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : Infinity;
+        currentPosition.updatedAt = position.timestamp || Date.now();
         const accurate = Number.isFinite(currentPosition.accuracy);
         const accuracy = accurate ? Math.round(currentPosition.accuracy) : null;
         const reliable = accurate && currentPosition.accuracy <= GPS_MAX_ACCURACY_METERS;
@@ -1343,7 +1369,8 @@
         renderCheckpoints();
       }
       function detectSector() {
-        if (!currentPosition || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS) {
+        const complete = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
+        if (!isCurrentPositionUsable()) {
           activePointId = null;
           $(".map-wrap").classList.remove("inside");
           $("#sector-notice").className = "notice warning";
@@ -1352,7 +1379,7 @@
             ? `El navegador solo entrega una ubicación aproximada de ${accuracyText}; no es suficiente para ubicarte. Activa la ubicación precisa/GPS del teléfono y permite el acceso a esta página.`
             : `El GPS tiene un error estimado de ${accuracyText}. Se necesita una lectura de ±${GPS_MAX_ACCURACY_METERS} m o mejor para validar sectores.`;
           $("#tactical-dock").classList.add("hidden");
-          $("#finish-button").classList.add("hidden");
+          updateFinishButton(complete);
           renderRound();
           return;
         }
@@ -1385,7 +1412,7 @@
           ? `GPS ±${Math.round(currentPosition.accuracy)} m: no se puede confirmar la entrada al radio de ${uncertain.point.name} (${uncertain.point.radius} m). Espera una lectura más precisa.`
           : "Fuera de los radios de control. Sigue el mapa hasta el siguiente sector.";
         $("#tactical-dock").classList.add("hidden");
-        $("#finish-button").classList.add("hidden");
+        updateFinishButton(complete);
         renderRound();
       }
       function median(values) {
@@ -1414,7 +1441,7 @@
           }, GPS_ACQUISITION_TIMEOUT_MS);
           gpsWatchId = navigator.geolocation.watchPosition((position) => {
             onPosition(position);
-            if (!Number.isFinite(position.coords.accuracy) || position.coords.accuracy > GPS_MAX_ACCURACY_METERS) {
+            if (!isUsablePosition(position) || position.coords.accuracy > GPS_MAX_ACCURACY_METERS) {
               samples.length = 0;
               return;
             }
@@ -1538,7 +1565,7 @@
         }
       }
       function commitScan(point, observations, photo = "") {
-        if (!currentPosition || !Number.isFinite(currentPosition.accuracy) || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS) {
+        if (!isCurrentPositionUsable()) {
           showToast(`No se puede registrar el sector: se necesita una lectura GPS con error de ±${GPS_MAX_ACCURACY_METERS} m o mejor.`);
           return false;
         }
@@ -1676,7 +1703,7 @@
         const startPoint = getStartPoint();
         const allPointsVisited = POINTS.length > 0 && POINTS.every((point) => hasScan(point.id));
         if (!activeRound || !allPointsVisited) return;
-        if (!startPoint || !currentPosition || !Number.isFinite(currentPosition.accuracy) || currentPosition.accuracy > GPS_MAX_ACCURACY_METERS || distanceMeters(currentPosition, startPoint) + currentPosition.accuracy > startPoint.radius) {
+        if (!startPoint || !isCurrentPositionUsable() || distanceMeters(currentPosition, startPoint) + currentPosition.accuracy > startPoint.radius) {
           showToast(`Debes regresar al radio de ${startPoint?.name || "Punto de inicio"} con GPS de ±${GPS_MAX_ACCURACY_METERS} m o mejor para terminar la ronda.`);
           return;
         }
